@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#6274f3" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>Маяк — мессенджер</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <svg class="svg-sprite" aria-hidden="true">
+      <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 11.5a8 8 0 0 1-8.5 8L5 22l1.6-4.8A8 8 0 1 1 20 11.5Z"/></symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6.6 3.8 9 8.3 6.9 10a15 15 0 0 0 7.1 7.1l1.7-2.1 4.5 2.4-.8 3.1c-.2.8-1 1.4-1.8 1.3C9.5 20.7 3.3 14.5 2.2 6.4c-.1-.8.5-1.6 1.3-1.8l3.1-.8Z"/></symbol>
+      <symbol id="i-contacts" viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2.5 21v-2a6.5 6.5 0 0 1 13 0v2M17 4.5a4 4 0 0 1 0 7.5M18 15a5 5 0 0 1 3.5 4.8V21"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M13.5 6.5 17.5 10.5M4 20l4.5-1 11-11a2.8 2.8 0 0 0-4-4l-11 11L4 20Z"/></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+      <symbol id="i-video" viewBox="0 0 24 24"><rect x="2.5" y="5" width="14" height="14" rx="3"/><path d="m16.5 10 5-3v10l-5-3"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></symbol>
+      <symbol id="i-attach" viewBox="0 0 24 24"><path d="m20.5 11.5-8.4 8.4a6 6 0 0 1-8.5-8.5l8.5-8.5a4 4 0 0 1 5.7 5.7l-8.5 8.5a2 2 0 1 1-2.8-2.8l7.8-7.8"/></symbol>
+      <symbol id="i-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14.5a5 5 0 0 0 8 0M9 9h.01M15 9h.01"/></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="m3 4 18 8-18 8 3.5-8L3 4Z"/><path d="M6.5 12H21"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7Z"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    </svg>
+
+    <main class="app-shell" id="appShell">
+      <nav class="rail" aria-label="Основная навигация">
+        <button class="brand" aria-label="Маяк"><img src="icon.svg" alt="" /></button>
+        <div class="rail-actions">
+          <button class="rail-button active" aria-label="Чаты"><svg><use href="#i-chat"/></svg><span>Чаты</span></button>
+          <button class="rail-button" aria-label="Звонки"><svg><use href="#i-phone"/></svg><span>Звонки</span></button>
+          <button class="rail-button" aria-label="Контакты"><svg><use href="#i-contacts"/></svg><span>Люди</span></button>
+        </div>
+        <div class="rail-bottom">
+          <button class="rail-button theme-toggle" aria-label="Сменить тему"><svg class="moon"><use href="#i-moon"/></svg><svg class="sun"><use href="#i-sun"/></svg></button>
+          <button class="avatar avatar-me" aria-label="Профиль">АР</button>
+        </div>
+      </nav>
+
+      <section class="inbox" aria-label="Диалоги">
+        <header class="inbox-header">
+          <div><p class="eyebrow">Ваше пространство</p><h1>Сообщения</h1></div>
+          <button class="icon-button compose-button" aria-label="Новый диалог"><svg><use href="#i-edit"/></svg></button>
+        </header>
+        <label class="search-field">
+          <svg><use href="#i-search"/></svg>
+          <input id="searchInput" type="search" placeholder="Поиск" autocomplete="off" />
+          <kbd>⌘ K</kbd>
+        </label>
+        <div class="filter-row" role="tablist">
+          <button class="filter active" data-filter="all">Все <span id="allCount">6</span></button>
+          <button class="filter" data-filter="unread">Непрочитанные <span id="unreadCount">3</span></button>
+        </div>
+        <div class="chat-list" id="chatList"></div>
+        <nav class="mobile-tabs" aria-label="Мобильная навигация">
+          <button class="active"><svg><use href="#i-chat"/></svg><span>Чаты</span></button>
+          <button><svg><use href="#i-phone"/></svg><span>Звонки</span></button>
+          <button><svg><use href="#i-contacts"/></svg><span>Люди</span></button>
+          <button class="theme-toggle"><svg class="moon"><use href="#i-moon"/></svg><svg class="sun"><use href="#i-sun"/></svg><span>Тема</span></button>
+        </nav>
+      </section>
+
+      <section class="conversation" aria-label="Открытый диалог">
+        <header class="conversation-header">
+          <button class="icon-button back-button" aria-label="Назад"><svg><use href="#i-back"/></svg></button>
+          <div class="avatar" id="headerAvatar">МК</div>
+          <button class="person-heading" id="personHeading">
+            <strong id="headerName">Марина Котова</strong>
+            <span><i class="online-dot"></i><span id="headerStatus">в сети</span></span>
+          </button>
+          <div class="header-actions">
+            <button class="icon-button" aria-label="Аудиозвонок"><svg><use href="#i-phone"/></svg></button>
+            <button class="icon-button video-action" aria-label="Видеозвонок"><svg><use href="#i-video"/></svg></button>
+            <button class="icon-button info-button" aria-label="Информация"><svg><use href="#i-info"/></svg></button>
+          </div>
+        </header>
+
+        <div class="message-area" id="messageArea">
+          <div class="messages" id="messages"></div>
+        </div>
+
+        <div class="typing-indicator" id="typingIndicator"><span></span><span></span><span></span><em>печатает</em></div>
+        <form class="composer" id="composer">
+          <button type="button" class="icon-button attach-button" aria-label="Прикрепить"><svg><use href="#i-attach"/></svg></button>
+          <div class="composer-input-wrap">
+            <textarea id="messageInput" rows="1" placeholder="Напишите сообщение…" aria-label="Сообщение"></textarea>
+            <button type="button" class="emoji-button" aria-label="Эмодзи"><svg><use href="#i-smile"/></svg></button>
+          </div>
+          <button type="submit" class="send-button" aria-label="Отправить"><svg><use href="#i-send"/></svg></button>
+        </form>
+      </section>
+
+      <aside class="details" aria-label="Информация о собеседнике">
+        <div class="details-top"><button class="icon-button details-close" aria-label="Закрыть"><svg><use href="#i-back"/></svg></button><strong>Информация</strong><button class="icon-button"><svg><use href="#i-more"/></svg></button></div>
+        <div class="profile-card">
+          <div class="avatar profile-avatar" id="detailsAvatar">МК</div>
+          <h2 id="detailsName">Марина Котова</h2>
+          <p id="detailsHandle">@marina</p>
+          <div class="profile-actions">
+            <button><span><svg><use href="#i-phone"/></svg></span>Позвонить</button>
+            <button><span><svg><use href="#i-video"/></svg></span>Видео</button>
+            <button><span><svg><use href="#i-bell"/></svg></span>Не беспокоить</button>
+          </div>
+        </div>
+        <div class="details-section">
+          <div class="detail-row"><span>О себе</span><p id="detailsBio">Дизайнер. Люблю хорошую типографику и плохие шутки.</p></div>
+          <div class="detail-row"><span>Медиа</span><p>24 файла <b>›</b></p></div>
+          <div class="detail-row"><span>Общие группы</span><p>3 группы <b>›</b></p></div>
+        </div>
+        <div class="shared-media" aria-hidden="true"><span class="media-one"></span><span class="media-two"></span><span class="media-three"></span></div>
+      </aside>
+    </main>
+
+    <div class="toast" id="toast" role="status"></div>
+    <script src="app.js" defer></script>
+  </body>
+</html>

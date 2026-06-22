@@ -1,0 +1,28 @@
+.DS_Store
+.idea/
+.vscode/
+*.iml
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+
+# Platform build products
+**/ios/Pods/
+**/ios/.symlinks/
+**/macos/Pods/
+**/macos/.symlinks/
+**/android/.gradle/
+**/android/local.properties
+
+# Local secrets
+.env
+.env.*
+!.env.example
+
