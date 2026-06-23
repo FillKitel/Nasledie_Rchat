@@ -12,6 +12,7 @@
 .pub/
 build/
 coverage/
+work/
 
 # Platform build products
 **/ios/Pods/
@@ -25,4 +26,3 @@ coverage/
 .env
 .env.*
 !.env.example
-
