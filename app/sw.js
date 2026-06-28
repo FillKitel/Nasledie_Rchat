@@ -1,4 +1,4 @@
-const CACHE = "mayak-shell-v1";
+const CACHE = "mayak-shell-v3";
 const ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./icon.svg", "./manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -17,4 +17,3 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
 });
-

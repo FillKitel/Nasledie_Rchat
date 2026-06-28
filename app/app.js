@@ -103,7 +103,8 @@ const seedChats = [
 ];
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
-const stored = localStorage.getItem("mayak-chats-v1");
+const STORAGE_KEY = "mayak-chats-v2";
+const stored = localStorage.getItem(STORAGE_KEY);
 let chats;
 
 try {
@@ -115,6 +116,7 @@ try {
 
 let activeChatId = chats[0].id;
 let activeFilter = "all";
+let activeSection = "chats";
 let replyTimer;
 
 const $ = (selector) => document.querySelector(selector);
@@ -126,6 +128,10 @@ const messageInput = $("#messageInput");
 const searchInput = $("#searchInput");
 const typingIndicator = $("#typingIndicator");
 const toast = $("#toast");
+const newChatModal = $("#newChatModal");
+const newChatForm = $("#newChatForm");
+const offlineModal = $("#offlineModal");
+const offlinePacketForm = $("#offlinePacketForm");
 
 function escapeHtml(value) {
   return String(value)
@@ -137,7 +143,7 @@ function escapeHtml(value) {
 }
 
 function save() {
-  localStorage.setItem("mayak-chats-v1", JSON.stringify(chats));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(chats));
 }
 
 function activeChat() {
@@ -214,15 +220,18 @@ function updateHeader() {
   $("#detailsName").textContent = chat.name;
   $("#detailsHandle").textContent = chat.handle;
   $("#detailsBio").textContent = chat.bio;
-  $(".online-dot").style.display = chat.status === "в сети" ? "block" : "none";
+  const headerOnlineDot = $(".person-heading .online-dot");
+  if (headerOnlineDot) headerOnlineDot.style.display = chat.status === "в сети" ? "block" : "none";
 }
 
 function openChat(id) {
   const chat = chats.find((item) => item.id === id);
   if (!chat) return;
   activeChatId = id;
+  activeSection = "chats";
   chat.unread = 0;
   save();
+  setSection("chats");
   renderChatList();
   updateHeader();
   renderMessages();
@@ -292,6 +301,168 @@ function setTheme(theme) {
   localStorage.setItem("mayak-theme", theme);
 }
 
+function setSection(section) {
+  activeSection = section;
+  document.querySelectorAll("[data-section-panel]").forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.sectionPanel === section);
+  });
+  document.querySelectorAll("[data-section]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.section === section);
+  });
+  const chatsOnly = section === "chats";
+  $(".filter-row").hidden = !chatsOnly;
+  $("#prototypeCard").hidden = !chatsOnly;
+  searchInput.placeholder = section === "calls" ? "Поиск звонков" : section === "contacts" ? "Поиск людей" : "Поиск";
+  if (section === "chats") renderChatList();
+}
+
+function makeInitials(name) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "??";
+  return words.slice(0, 2).map((word) => word[0]).join("").toLocaleUpperCase("ru");
+}
+
+function openNewChatModal() {
+  newChatModal.hidden = false;
+  $("#newChatName").focus();
+}
+
+function closeNewChatModal() {
+  newChatModal.hidden = true;
+  newChatForm.reset();
+}
+
+function createLocalChat({ name, handle, message }) {
+  const cleanName = name.trim() || "Новый контакт";
+  const cleanHandle = handle.trim() || `@${cleanName.toLocaleLowerCase("ru").replaceAll(" ", "_")}`;
+  const cleanMessage = message.trim() || "Привет! Это локальный демо-чат.";
+  const time = currentTime();
+  const chat = {
+    id: `local-${Date.now()}`,
+    name: cleanName,
+    initials: makeInitials(cleanName),
+    avatar: ["green", "blue", "pink", "orange", "purple"][Math.floor(Math.random() * 5)],
+    status: "локальный контакт",
+    handle: cleanHandle,
+    bio: "Создано прямо в localhost-прототипе. После backend такие чаты будут храниться на сервере.",
+    preview: cleanMessage,
+    time,
+    unread: 0,
+    messages: [{ direction: "out", text: cleanMessage, time }]
+  };
+  chats = [chat, ...chats];
+  activeChatId = chat.id;
+  save();
+  closeNewChatModal();
+  openChat(chat.id);
+  showToast("Локальный чат создан");
+}
+
+function bytesToBase64(bytes) {
+  return btoa(String.fromCharCode(...bytes));
+}
+
+function base64ToBytes(value) {
+  return Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+}
+
+async function deriveOfflineKey(secret, salt) {
+  const material = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: 180000, hash: "SHA-256" },
+    material,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+async function encryptOfflinePayload(payload, secret) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveOfflineKey(secret, salt);
+  const encoded = new TextEncoder().encode(JSON.stringify(payload));
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded));
+  return {
+    type: "mayak.offline.packet",
+    version: 1,
+    createdAt: new Date().toISOString(),
+    hint: {
+      to: payload.to,
+      relay: "Можно передавать через посредников: содержимое зашифровано.",
+      ttl: "7d"
+    },
+    crypto: {
+      kdf: "PBKDF2-SHA256",
+      cipher: "AES-256-GCM",
+      iterations: 180000,
+      salt: bytesToBase64(salt),
+      iv: bytesToBase64(iv),
+      ciphertext: bytesToBase64(ciphertext)
+    }
+  };
+}
+
+async function decryptOfflinePacket(packet, secret) {
+  if (!packet || packet.type !== "mayak.offline.packet" || packet.version !== 1) {
+    throw new Error("bad packet");
+  }
+  const salt = base64ToBytes(packet.crypto.salt);
+  const iv = base64ToBytes(packet.crypto.iv);
+  const ciphertext = base64ToBytes(packet.crypto.ciphertext);
+  const key = await deriveOfflineKey(secret, salt);
+  const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
+  return JSON.parse(new TextDecoder().decode(plaintext));
+}
+
+function openOfflineModal() {
+  offlineModal.hidden = false;
+  $("#offlineTo").value ||= activeChat().handle || activeChat().name;
+  $("#offlineMessage").value ||= messageInput.value.trim();
+  $("#offlineTo").focus();
+}
+
+function closeOfflineModal() {
+  offlineModal.hidden = true;
+}
+
+function addImportedPacketToChat(payload) {
+  const name = payload.fromName || "Офлайн доставка";
+  const existing = chats.find((chat) => chat.id === "offline-relay");
+  const chat = existing || {
+    id: "offline-relay",
+    name: "Офлайн доставка",
+    initials: "OD",
+    avatar: "logo-avatar",
+    status: "store & forward",
+    handle: "encrypted-packets",
+    bio: "Сюда попадают расшифрованные сообщения, принесённые офлайн-пакетами.",
+    preview: "",
+    time: "",
+    unread: 0,
+    verified: true,
+    messages: []
+  };
+  const time = currentTime();
+  chat.messages.push({
+    direction: "in",
+    text: `${name} → ${payload.to}\n${payload.text}`,
+    time
+  });
+  chat.preview = `Пакет: ${payload.text}`;
+  chat.time = time;
+  if (!existing) chats = [chat, ...chats];
+  activeChatId = chat.id;
+  save();
+  openChat(chat.id);
+}
+
 $("#composer").addEventListener("submit", (event) => {
   event.preventDefault();
   sendMessage(messageInput.value);
@@ -327,20 +498,93 @@ document.querySelectorAll(".theme-toggle").forEach((button) => {
   button.addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
 });
 
+document.querySelectorAll("[data-section]").forEach((button) => {
+  button.addEventListener("click", () => setSection(button.dataset.section));
+});
+
 $(".back-button").addEventListener("click", () => appShell.classList.remove("chat-open"));
-$(".compose-button").addEventListener("click", () => showToast("Создание диалога — следующий экран"));
+$(".compose-button").addEventListener("click", openNewChatModal);
 $(".attach-button").addEventListener("click", () => showToast("Фото, видео и файлы добавим на следующем этапе"));
 $(".emoji-button").addEventListener("click", () => {
   messageInput.value += ["🙂", "✨", "👍", "🔥"][Math.floor(Math.random() * 4)];
   messageInput.focus();
   resizeComposer();
 });
-document.querySelectorAll(".header-actions .icon-button, .profile-actions button, .rail-actions .rail-button:not(.active)").forEach((button) => {
+document.querySelectorAll(".header-actions .icon-button, .profile-actions button").forEach((button) => {
   button.addEventListener("click", () => showToast("Этот раздел скоро появится"));
+});
+document.querySelectorAll("[data-demo-toast]").forEach((button) => {
+  button.addEventListener("click", () => showToast(button.dataset.demoToast));
+});
+document.querySelectorAll("[data-open-chat]").forEach((button) => {
+  button.addEventListener("click", () => openChat(button.dataset.openChat));
+});
+document.querySelectorAll("[data-modal-close]").forEach((button) => {
+  button.addEventListener("click", closeNewChatModal);
+});
+newChatModal.addEventListener("click", (event) => {
+  if (event.target === newChatModal) closeNewChatModal();
+});
+newChatForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  createLocalChat({
+    name: $("#newChatName").value,
+    handle: $("#newChatHandle").value,
+    message: $("#newChatMessage").value
+  });
+});
+$("#emergencyButton").addEventListener("click", openOfflineModal);
+document.querySelectorAll("[data-offline-close]").forEach((button) => {
+  button.addEventListener("click", closeOfflineModal);
+});
+offlineModal.addEventListener("click", (event) => {
+  if (event.target === offlineModal) closeOfflineModal();
+});
+offlinePacketForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const to = $("#offlineTo").value.trim();
+  const secret = $("#offlineKey").value.trim();
+  const text = $("#offlineMessage").value.trim();
+  if (!to || !secret || !text) return showToast("Заполните получателя, ключ и сообщение");
+  if (!crypto.subtle) return showToast("В этом браузере недоступна Web Crypto");
+  const packet = await encryptOfflinePayload({
+    id: `msg-${Date.now()}`,
+    fromName: "Локальное устройство",
+    to,
+    text,
+    createdAt: new Date().toISOString(),
+    hops: []
+  }, secret);
+  $("#offlinePacketOutput").value = JSON.stringify(packet, null, 2);
+  showToast("Пакет зашифрован");
+});
+$("#copyPacketButton").addEventListener("click", async () => {
+  const packet = $("#offlinePacketOutput").value.trim();
+  if (!packet) return showToast("Сначала соберите пакет");
+  await navigator.clipboard.writeText(packet);
+  showToast("Пакет скопирован");
+});
+$("#importPacketButton").addEventListener("click", async () => {
+  const raw = $("#incomingPacket").value.trim();
+  const secret = $("#incomingKey").value.trim();
+  if (!raw || !secret) return showToast("Вставьте пакет и ключ комнаты");
+  try {
+    const payload = await decryptOfflinePacket(JSON.parse(raw), secret);
+    addImportedPacketToChat(payload);
+    closeOfflineModal();
+    showToast("Пакет принят");
+  } catch {
+    showToast("Не удалось расшифровать: неверный пакет или ключ");
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !newChatModal.hidden) closeNewChatModal();
+  if (event.key === "Escape" && !offlineModal.hidden) closeOfflineModal();
 });
 
 const preferredTheme = localStorage.getItem("mayak-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 setTheme(preferredTheme);
+setSection(activeSection);
 renderChatList();
 updateHeader();
 renderMessages();
