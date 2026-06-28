@@ -9,7 +9,7 @@
     <title>Маяк — мессенджер</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=3" />
   </head>
   <body>
     <svg class="svg-sprite" aria-hidden="true">
@@ -29,15 +29,21 @@
       <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
       <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></symbol>
       <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+      <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 18H8a5 5 0 1 1 1-9.9A6 6 0 0 1 20 11.5 3.5 3.5 0 0 1 17.5 18Z"/></symbol>
+      <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+      <symbol id="i-route" viewBox="0 0 24 24"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M7.5 6H12a4 4 0 0 1 0 8H10a4 4 0 0 0 0 8h6.5"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></symbol>
     </svg>
 
     <main class="app-shell" id="appShell">
       <nav class="rail" aria-label="Основная навигация">
         <button class="brand" aria-label="Маяк"><img src="icon.svg" alt="" /></button>
         <div class="rail-actions">
-          <button class="rail-button active" aria-label="Чаты"><svg><use href="#i-chat"/></svg><span>Чаты</span></button>
-          <button class="rail-button" aria-label="Звонки"><svg><use href="#i-phone"/></svg><span>Звонки</span></button>
-          <button class="rail-button" aria-label="Контакты"><svg><use href="#i-contacts"/></svg><span>Люди</span></button>
+          <button class="rail-button active" data-section="chats" aria-label="Чаты"><svg><use href="#i-chat"/></svg><span>Чаты</span></button>
+          <button class="rail-button" data-section="calls" aria-label="Звонки"><svg><use href="#i-phone"/></svg><span>Звонки</span></button>
+          <button class="rail-button" data-section="contacts" aria-label="Контакты"><svg><use href="#i-contacts"/></svg><span>Люди</span></button>
         </div>
         <div class="rail-bottom">
           <button class="rail-button theme-toggle" aria-label="Сменить тему"><svg class="moon"><use href="#i-moon"/></svg><svg class="sun"><use href="#i-sun"/></svg></button>
@@ -47,7 +53,7 @@
 
       <section class="inbox" aria-label="Диалоги">
         <header class="inbox-header">
-          <div><p class="eyebrow">Ваше пространство</p><h1>Сообщения</h1></div>
+          <div><p class="eyebrow">Локальный стенд v0.2</p><h1>Маяк</h1></div>
           <button class="icon-button compose-button" aria-label="Новый диалог"><svg><use href="#i-edit"/></svg></button>
         </header>
         <label class="search-field">
@@ -59,11 +65,65 @@
           <button class="filter active" data-filter="all">Все <span id="allCount">6</span></button>
           <button class="filter" data-filter="unread">Непрочитанные <span id="unreadCount">3</span></button>
         </div>
-        <div class="chat-list" id="chatList"></div>
+        <div class="prototype-card" id="prototypeCard">
+          <div class="prototype-icon"><svg><use href="#i-cloud"/></svg></div>
+          <div>
+            <strong>Это уже не просто картинка</strong>
+            <p>Можно писать демо-сообщения, создавать локальные чаты, переключать разделы и тему. Flutter-база под iOS/Android/Mac лежит отдельно.</p>
+          </div>
+        </div>
+        <div class="panel-stack">
+          <div class="chat-list content-panel active" id="chatList" data-section-panel="chats"></div>
+
+          <div class="side-panel content-panel" data-section-panel="calls" aria-label="Звонки">
+            <div class="panel-title">
+              <span><svg><use href="#i-phone"/></svg></span>
+              <div><strong>Звонки</strong><p>Будущий слой голосовых и видеозвонков</p></div>
+            </div>
+            <button class="call-card" data-demo-toast="Аудиозвонки появятся после backend/сигналинга">
+              <span class="avatar purple">КП</span>
+              <span><strong>Команда продукта</strong><p>Групповой созвон · сегодня 16:00</p></span>
+              <svg><use href="#i-phone"/></svg>
+            </button>
+            <button class="call-card" data-demo-toast="Видеозвонки заложены как следующий модуль">
+              <span class="avatar orange">МК</span>
+              <span><strong>Марина Котова</strong><p>Пропущенный видеозвонок · вчера</p></span>
+              <svg><use href="#i-video"/></svg>
+            </button>
+            <button class="call-card" data-demo-toast="Голосовые комнаты добавим после серверной части">
+              <span class="avatar blue"><svg><use href="#i-mic"/></svg></span>
+              <span><strong>Голосовая комната</strong><p>Быстрый голосовой чат для команды</p></span>
+              <svg><use href="#i-plus"/></svg>
+            </button>
+          </div>
+
+          <div class="side-panel content-panel" data-section-panel="contacts" aria-label="Контакты">
+            <div class="panel-title">
+              <span><svg><use href="#i-contacts"/></svg></span>
+              <div><strong>Люди</strong><p>Контакты, статусы и быстрый старт диалога</p></div>
+            </div>
+            <button class="contact-card" data-open-chat="marina">
+              <span class="avatar orange">МК</span>
+              <span><strong>Марина Котова</strong><p><i class="online-dot"></i>в сети · дизайнер</p></span>
+            </button>
+            <button class="contact-card" data-open-chat="alex">
+              <span class="avatar blue">АР</span>
+              <span><strong>Алексей Романов</strong><p>был недавно · мобильная разработка</p></span>
+            </button>
+            <button class="contact-card" data-open-chat="nikita">
+              <span class="avatar green">НО</span>
+              <span><strong>Никита Орлов</strong><p>был в 10:14 · музыка и кофе</p></span>
+            </button>
+            <button class="contact-card add-contact" data-demo-toast="Добавление контакта сделаем вместе с регистрацией">
+              <span class="avatar logo-avatar"><svg><use href="#i-plus"/></svg></span>
+              <span><strong>Добавить контакт</strong><p>по username, телефону или QR-коду</p></span>
+            </button>
+          </div>
+        </div>
         <nav class="mobile-tabs" aria-label="Мобильная навигация">
-          <button class="active"><svg><use href="#i-chat"/></svg><span>Чаты</span></button>
-          <button><svg><use href="#i-phone"/></svg><span>Звонки</span></button>
-          <button><svg><use href="#i-contacts"/></svg><span>Люди</span></button>
+          <button class="active" data-section="chats"><svg><use href="#i-chat"/></svg><span>Чаты</span></button>
+          <button data-section="calls"><svg><use href="#i-phone"/></svg><span>Звонки</span></button>
+          <button data-section="contacts"><svg><use href="#i-contacts"/></svg><span>Люди</span></button>
           <button class="theme-toggle"><svg class="moon"><use href="#i-moon"/></svg><svg class="sun"><use href="#i-sun"/></svg><span>Тема</span></button>
         </nav>
       </section>
@@ -110,6 +170,12 @@
             <button><span><svg><use href="#i-bell"/></svg></span>Не беспокоить</button>
           </div>
         </div>
+        <div class="project-status">
+          <strong>Статус прототипа</strong>
+          <p><svg><use href="#i-lock"/></svg> Следующий шаг: аккаунты, сервер и синхронизация.</p>
+          <p><svg><use href="#i-cloud"/></svg> Уже есть: локальный UI + Flutter-основа под устройства.</p>
+          <button id="emergencyButton"><svg><use href="#i-route"/></svg>Аварийная доставка</button>
+        </div>
         <div class="details-section">
           <div class="detail-row"><span>О себе</span><p id="detailsBio">Дизайнер. Люблю хорошую типографику и плохие шутки.</p></div>
           <div class="detail-row"><span>Медиа</span><p>24 файла <b>›</b></p></div>
@@ -119,7 +185,59 @@
       </aside>
     </main>
 
+    <div class="modal-backdrop" id="newChatModal" hidden>
+      <form class="modal-card" id="newChatForm">
+        <div class="modal-head">
+          <div><p class="eyebrow">Новый диалог</p><h2>Создать локальный чат</h2></div>
+          <button type="button" class="icon-button" data-modal-close aria-label="Закрыть"><svg><use href="#i-back"/></svg></button>
+        </div>
+        <label>Имя собеседника<input id="newChatName" autocomplete="off" placeholder="Например: Рома" /></label>
+        <label>Username<input id="newChatHandle" autocomplete="off" placeholder="@username" /></label>
+        <label>Первое сообщение<textarea id="newChatMessage" rows="3" placeholder="Привет! Это локальный демо-чат."></textarea></label>
+        <div class="modal-actions">
+          <button type="button" data-modal-close>Отмена</button>
+          <button type="submit"><svg><use href="#i-plus"/></svg>Создать</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="modal-backdrop" id="offlineModal" hidden>
+      <section class="modal-card offline-card" aria-label="Аварийная доставка">
+        <div class="modal-head">
+          <div><p class="eyebrow">Store & forward</p><h2>Офлайн-пакет</h2></div>
+          <button type="button" class="icon-button" data-offline-close aria-label="Закрыть"><svg><use href="#i-back"/></svg></button>
+        </div>
+        <div class="offline-explain">
+          <span><svg><use href="#i-lock"/></svg></span>
+          <p>Сообщение превращается в зашифрованный конверт. Его можно передать как текст: через QR, файл, Bluetooth, локальную сеть или “почтальона”. Посредник видит только пакет.</p>
+        </div>
+
+        <div class="offline-grid">
+          <form id="offlinePacketForm" class="offline-section">
+            <h3>Собрать пакет</h3>
+            <label>Кому<input id="offlineTo" autocomplete="off" placeholder="@recipient или имя" /></label>
+            <label>Ключ комнаты<input id="offlineKey" autocomplete="off" placeholder="Например: семейный пароль" /></label>
+            <label>Сообщение<textarea id="offlineMessage" rows="3" placeholder="Текст для офлайн-доставки"></textarea></label>
+            <button type="submit"><svg><use href="#i-route"/></svg>Зашифровать</button>
+          </form>
+
+          <div class="offline-section">
+            <h3>Готовый пакет</h3>
+            <textarea id="offlinePacketOutput" rows="8" readonly placeholder="Здесь появится JSON-пакет"></textarea>
+            <button type="button" id="copyPacketButton"><svg><use href="#i-copy"/></svg>Скопировать пакет</button>
+          </div>
+        </div>
+
+        <div class="offline-section import-section">
+          <h3>Принять пакет</h3>
+          <label>Пакет<textarea id="incomingPacket" rows="5" placeholder="Вставьте полученный пакет"></textarea></label>
+          <label>Ключ комнаты<input id="incomingKey" autocomplete="off" placeholder="Тот же ключ, что у отправителя" /></label>
+          <button type="button" id="importPacketButton"><svg><use href="#i-cloud"/></svg>Расшифровать и добавить в чат</button>
+        </div>
+      </section>
+    </div>
+
     <div class="toast" id="toast" role="status"></div>
-    <script src="app.js" defer></script>
+    <script src="app.js?v=3" defer></script>
   </body>
 </html>
