@@ -146,6 +146,7 @@ const realtime = {
   available: false,
   connected: false,
   clients: 0,
+  connectUrl: "",
   source: null,
   knownMessageIds: new Set()
 };
@@ -201,6 +202,7 @@ const newChatForm = $("#newChatForm");
 const offlineModal = $("#offlineModal");
 const offlinePacketForm = $("#offlinePacketForm");
 const liveStatus = $("#liveStatus");
+const connectPhoneCard = $("#connectPhoneCard");
 
 function escapeHtml(value) {
   return String(value)
@@ -391,6 +393,57 @@ function setLiveStatus(state, title, text) {
   if (activeChatId === LIVE_CHAT_ID) updateHeader();
 }
 
+function setConnectCardUnavailable() {
+  connectPhoneCard.hidden = true;
+  realtime.connectUrl = "";
+}
+
+function selectConnectUrl() {
+  const link = $("#connectUrl");
+  const selection = window.getSelection();
+  if (!link || !selection) return;
+  const range = document.createRange();
+  range.selectNodeContents(link);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+async function loadConnectInfo() {
+  try {
+    const info = await fetchJson("/api/connect", { timeout: 1800 });
+    realtime.connectUrl = info.primaryUrl;
+    const connectUrl = $("#connectUrl");
+    const connectQr = $("#connectQr");
+    connectUrl.href = info.primaryUrl;
+    connectUrl.textContent = info.primaryUrl;
+    connectQr.src = `${info.qrSvgUrl}&t=${Date.now()}`;
+    connectPhoneCard.hidden = false;
+  } catch {
+    setConnectCardUnavailable();
+  }
+}
+
+async function copyText(value) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {}
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.inset = "0 auto auto 0";
+  textarea.style.opacity = "0";
+  document.body.append(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  return copied;
+}
+
 function formatServerTime(value) {
   return new Intl.DateTimeFormat("ru", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
@@ -520,17 +573,19 @@ function connectEventStream() {
 }
 
 async function initRealtime() {
-  setLiveStatus("checking", "Проверяю локальный сервер…", "Живой чат включится, если страница открыта через сервер v0.3.");
+  setLiveStatus("checking", "Проверяю локальный сервер…", "Живой чат включится, если страница открыта через сервер v0.4.");
   try {
     const health = await fetchJson("/api/health", { timeout: 1600 });
     realtime.available = Boolean(health.ok);
     realtime.clients = health.clients || 0;
+    await loadConnectInfo();
     const snapshot = await fetchJson(`/api/messages?chatId=${LIVE_CHAT_ID}`, { timeout: 1600 });
     applyServerMessages(snapshot.messages || [], { replace: true });
     connectEventStream();
   } catch {
     realtime.available = false;
     realtime.connected = false;
+    setConnectCardUnavailable();
     setLiveStatus("offline", "Живой сервер не запущен", "Запустите ./script/run_local_chat.sh и откройте http://127.0.0.1:4173.");
   }
 }
@@ -759,6 +814,16 @@ document.querySelectorAll("[data-demo-toast]").forEach((button) => {
 });
 document.querySelectorAll("[data-open-chat]").forEach((button) => {
   button.addEventListener("click", () => openChat(button.dataset.openChat));
+});
+$("#copyConnectUrl").addEventListener("click", async () => {
+  if (!realtime.connectUrl) return showToast("Сначала запустите локальный сервер");
+  const copied = await copyText(realtime.connectUrl);
+  if (!copied) selectConnectUrl();
+  showToast(copied ? "Ссылка для телефона скопирована" : "Ссылка выделена — скопируйте вручную");
+});
+$("#refreshConnectInfo").addEventListener("click", async () => {
+  await loadConnectInfo();
+  showToast(realtime.connectUrl ? "QR обновлён" : "Не удалось получить адрес");
 });
 document.querySelectorAll("[data-modal-close]").forEach((button) => {
   button.addEventListener("click", closeNewChatModal);

@@ -215,6 +215,65 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-lineca
 .live-dot.checking { background: #f1a640; box-shadow: 0 0 0 4px color-mix(in srgb, #f1a640 16%, transparent); }
 .live-status-card strong { display: block; margin-bottom: 3px; font-size: 11px; }
 .live-status-card p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.38; }
+.connect-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px;
+  gap: 12px;
+  align-items: center;
+  margin: -2px 20px 12px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 92% 12%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 85px),
+    var(--surface-soft);
+}
+.connect-card[hidden] { display: none; }
+.connect-card-copy strong { display: block; margin-bottom: 5px; font-size: 14px; letter-spacing: -.02em; }
+.connect-card-copy > span { display: block; margin-bottom: 9px; color: var(--muted); font-size: 11px; line-height: 1.42; }
+.connect-card-copy a {
+  display: block;
+  overflow: hidden;
+  margin-bottom: 10px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 8px 9px;
+  background: var(--surface);
+  color: var(--accent);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 10px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.connect-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.connect-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 11px;
+  padding: 8px 10px;
+  background: var(--accent);
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.connect-actions button:last-child { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--accent); }
+.connect-actions svg { width: 15px; height: 15px; }
+.qr-frame {
+  display: grid;
+  width: 112px;
+  height: 112px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 8px;
+  background: white;
+  box-shadow: 0 12px 30px rgba(30, 38, 63, .08);
+}
+.qr-frame img { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
 .panel-stack { position: relative; min-height: 0; flex: 1; }
 .content-panel { display: none; height: 100%; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 .content-panel.active { display: block; }
@@ -575,7 +634,9 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-lineca
   .inbox h1 { font-size: 27px; }
   .search-field { margin: 0 16px; }
   .filter-row { padding-inline: 16px; }
-  .prototype-card, .live-status-card { margin-inline: 16px; }
+  .prototype-card, .live-status-card, .connect-card { margin-inline: 16px; }
+  .connect-card { grid-template-columns: minmax(0, 1fr) 96px; }
+  .qr-frame { width: 96px; height: 96px; border-radius: 16px; }
   .chat-list, .side-panel { padding-inline: 7px; padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
   .chat-item { padding: 11px; }
   .mobile-tabs { position: absolute; inset: auto 0 0; display: grid; grid-template-columns: repeat(4, 1fr); height: calc(66px + env(safe-area-inset-bottom)); padding: 7px 8px env(safe-area-inset-bottom); border-top: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(20px); }
@@ -599,6 +660,8 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-lineca
 @media (max-width: 380px) {
   .header-actions { display: none; }
   .search-field kbd { display: none; }
+  .connect-card { grid-template-columns: 1fr; }
+  .qr-frame { width: 132px; height: 132px; justify-self: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {
