@@ -104,6 +104,9 @@ const seedChats = [
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const STORAGE_KEY = "mayak-chats-v2";
+const LIVE_CHAT_ID = "live";
+const CLIENT_ID_KEY = "mayak-client-session-id";
+const CLIENT_NAME_KEY = "mayak-client-name";
 const stored = localStorage.getItem(STORAGE_KEY);
 let chats;
 
@@ -114,7 +117,72 @@ try {
   chats = clone(seedChats);
 }
 
-let activeChatId = chats[0].id;
+function makeId(prefix) {
+  const random = globalThis.crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${prefix}-${random}`;
+}
+
+function getSessionValue(key, fallback) {
+  try {
+    const existing = sessionStorage.getItem(key);
+    if (existing) return existing;
+    sessionStorage.setItem(key, fallback);
+  } catch {}
+  return fallback;
+}
+
+function getLocalValue(key, fallback) {
+  try {
+    const existing = localStorage.getItem(key);
+    if (existing) return existing;
+    localStorage.setItem(key, fallback);
+  } catch {}
+  return fallback;
+}
+
+const clientId = getSessionValue(CLIENT_ID_KEY, makeId("client"));
+const clientName = getLocalValue(CLIENT_NAME_KEY, `Устройство ${clientId.slice(-4).toLocaleUpperCase("ru")}`);
+const realtime = {
+  available: false,
+  connected: false,
+  clients: 0,
+  source: null,
+  knownMessageIds: new Set()
+};
+
+function createLiveChat() {
+  return {
+    id: LIVE_CHAT_ID,
+    name: "Живой чат",
+    initials: "LC",
+    avatar: "logo-avatar",
+    status: "проверка сервера",
+    handle: "localhost realtime",
+    bio: "Первый настоящий диалог: сообщения проходят через локальный сервер и появляются во всех открытых окнах.",
+    preview: "Откройте два окна и отправьте сообщение",
+    time: "v0.3",
+    unread: 0,
+    verified: true,
+    messages: []
+  };
+}
+
+function ensureLiveChat() {
+  let chat = chats.find((item) => item.id === LIVE_CHAT_ID);
+  if (!chat) {
+    chat = createLiveChat();
+    chats = [chat, ...chats];
+    save();
+  }
+  chat.verified = true;
+  chat.handle = "localhost realtime";
+  chat.bio = "Первый настоящий диалог: сообщения проходят через локальный сервер и появляются во всех открытых окнах.";
+  return chat;
+}
+
+ensureLiveChat();
+
+let activeChatId = LIVE_CHAT_ID;
 let activeFilter = "all";
 let activeSection = "chats";
 let replyTimer;
@@ -132,6 +200,7 @@ const newChatModal = $("#newChatModal");
 const newChatForm = $("#newChatForm");
 const offlineModal = $("#offlineModal");
 const offlinePacketForm = $("#offlinePacketForm");
+const liveStatus = $("#liveStatus");
 
 function escapeHtml(value) {
   return String(value)
@@ -153,7 +222,7 @@ function activeChat() {
 function renderChatList() {
   const query = searchInput.value.trim().toLocaleLowerCase("ru");
   const visible = chats.filter((chat) => {
-    const matchesSearch = `${chat.name} ${chat.preview}`.toLocaleLowerCase("ru").includes(query);
+    const matchesSearch = `${chat.name} ${chat.preview || ""}`.toLocaleLowerCase("ru").includes(query);
     const matchesFilter = activeFilter === "all" || chat.unread > 0;
     return matchesSearch && matchesFilter;
   });
@@ -171,7 +240,7 @@ function renderChatList() {
       <span class="avatar ${chat.avatar}">${escapeHtml(chat.initials)}</span>
       <span class="chat-copy">
         <strong>${escapeHtml(chat.name)} ${chat.verified ? '<span class="verified">✓</span>' : ""}</strong>
-        <p>${chat.preview.startsWith("Вы:") ? `<span class="you">Вы:</span>${escapeHtml(chat.preview.slice(3))}` : escapeHtml(chat.preview)}</p>
+        <p>${(chat.preview || "").startsWith("Вы:") ? `<span class="you">Вы:</span>${escapeHtml(chat.preview.slice(3))}` : escapeHtml(chat.preview || "Пока нет сообщений")}</p>
       </span>
       <span class="chat-meta"><time>${escapeHtml(chat.time)}</time>${chat.unread ? `<b class="unread-badge">${chat.unread}</b>` : ""}</span>
     </button>
@@ -184,18 +253,21 @@ function renderChatList() {
 
 function renderMessages() {
   const chat = activeChat();
+  const emptyText = chat.id === LIVE_CHAT_ID
+    ? "Откройте этот же адрес во втором окне и отправьте сообщение. Если сервер запущен, оно появится там автоматически."
+    : "Здесь пока нет сообщений.";
   messages.innerHTML = `
     <div class="day-divider">Сегодня</div>
-    ${chat.messages.map((message, index) => {
+    ${chat.messages.length ? chat.messages.map((message, index) => {
       const previous = chat.messages[index - 1];
       const grouped = previous && previous.direction === message.direction;
       return `
         <div class="message ${message.direction} ${grouped ? "grouped" : ""}">
-          <div class="bubble">${escapeHtml(message.text).replaceAll("\n", "<br>")}<span class="message-time">${escapeHtml(message.time)}${message.direction === "out" ? '<span class="checks">✓✓</span>' : ""}</span></div>
+          <div class="bubble">${message.authorName && message.direction === "in" ? `<strong class="message-author">${escapeHtml(message.authorName)}</strong>` : ""}${escapeHtml(message.text).replaceAll("\n", "<br>")}<span class="message-time">${escapeHtml(message.time)}${message.direction === "out" ? '<span class="checks">✓✓</span>' : ""}</span></div>
           ${message.reaction ? `<button class="reaction" aria-label="Реакция ${escapeHtml(message.reaction)}">${escapeHtml(message.reaction)} <small>${message.reactionCount || 1}</small></button>` : ""}
         </div>
       `;
-    }).join("")}
+    }).join("") : `<div class="empty-chat"><strong>Ждём первое сообщение</strong>${escapeHtml(emptyText)}</div>`}
   `;
 
   messages.querySelectorAll(".reaction").forEach((button) => {
@@ -243,10 +315,15 @@ function currentTime() {
   return new Intl.DateTimeFormat("ru", { hour: "2-digit", minute: "2-digit" }).format(new Date());
 }
 
-function sendMessage(text) {
+async function sendMessage(text) {
   const chat = activeChat();
   const cleanText = text.trim();
-  if (!cleanText) return;
+  if (!cleanText) return false;
+
+  if (chat.id === LIVE_CHAT_ID) {
+    return sendRealtimeMessage(cleanText);
+  }
+
   const time = currentTime();
   chat.messages.push({ direction: "out", text: cleanText, time });
   chat.preview = `Вы: ${cleanText}`;
@@ -256,6 +333,7 @@ function sendMessage(text) {
   renderChatList();
   renderMessages();
   simulateReply(chat.id);
+  return true;
 }
 
 function simulateReply(chatId) {
@@ -294,6 +372,167 @@ function showToast(text) {
   toast.textContent = text;
   toast.classList.add("visible");
   toastTimer = setTimeout(() => toast.classList.remove("visible"), 1700);
+}
+
+function setLiveStatus(state, title, text) {
+  const dot = liveStatus?.querySelector(".live-dot");
+  $("#liveStatusTitle").textContent = title;
+  $("#liveStatusText").textContent = text;
+  dot?.classList.remove("online", "offline", "checking");
+  dot?.classList.add(state);
+
+  const chat = ensureLiveChat();
+  chat.status = state === "online" ? `онлайн · ${realtime.clients || 1} клиент(а)` : state === "checking" ? "проверка сервера" : "сервер не подключён";
+  if (!chat.messages.length) {
+    chat.preview = state === "online" ? "Сервер подключён — можно писать" : "Запустите локальный сервер для живого режима";
+    chat.time = state === "online" ? "online" : "offline";
+  }
+  renderChatList();
+  if (activeChatId === LIVE_CHAT_ID) updateHeader();
+}
+
+function formatServerTime(value) {
+  return new Intl.DateTimeFormat("ru", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}
+
+function mapServerMessage(message) {
+  return {
+    id: message.id,
+    direction: message.authorId === clientId ? "out" : "in",
+    authorName: message.authorName,
+    text: message.text,
+    time: formatServerTime(message.createdAt)
+  };
+}
+
+function applyServerMessages(serverMessages, { replace = false } = {}) {
+  const chat = ensureLiveChat();
+  if (replace) {
+    realtime.knownMessageIds = new Set();
+    chat.messages = [];
+  }
+
+  for (const message of serverMessages) {
+    if (!message?.id || realtime.knownMessageIds.has(message.id)) continue;
+    realtime.knownMessageIds.add(message.id);
+    const mapped = mapServerMessage(message);
+    chat.messages.push(mapped);
+    chat.preview = `${mapped.direction === "out" ? "Вы: " : ""}${mapped.text}`;
+    chat.time = mapped.time;
+    if (mapped.direction === "in" && activeChatId !== LIVE_CHAT_ID) chat.unread += 1;
+  }
+
+  if (!serverMessages.length && replace) {
+    chat.preview = realtime.available ? "Сервер подключён — можно писать" : "Запустите локальный сервер для живого режима";
+    chat.time = realtime.available ? "online" : "offline";
+  }
+
+  save();
+  renderChatList();
+  if (activeChatId === LIVE_CHAT_ID) {
+    updateHeader();
+    renderMessages();
+  }
+}
+
+async function fetchJson(url, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeout || 1800);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "content-type": "application/json",
+        ...(options.headers || {})
+      }
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function sendRealtimeMessage(text) {
+  if (!realtime.available) {
+    showToast("Локальный сервер не подключён");
+    return false;
+  }
+
+  try {
+    const { message } = await fetchJson("/api/messages", {
+      method: "POST",
+      body: JSON.stringify({
+        chatId: LIVE_CHAT_ID,
+        text,
+        authorId: clientId,
+        authorName: clientName
+      }),
+      timeout: 3500
+    });
+    applyServerMessages([message]);
+    return true;
+  } catch {
+    realtime.available = false;
+    realtime.connected = false;
+    setLiveStatus("offline", "Сервер потерян", "Сообщение не ушло. Запустите локальный сервер и попробуйте ещё раз.");
+    showToast("Не удалось отправить на сервер");
+    return false;
+  }
+}
+
+function connectEventStream() {
+  realtime.source?.close();
+  const source = new EventSource(`/api/events?clientId=${encodeURIComponent(clientId)}`);
+  realtime.source = source;
+
+  source.addEventListener("hello", (event) => {
+    const data = JSON.parse(event.data);
+    realtime.connected = true;
+    realtime.clients = data.clients || realtime.clients || 1;
+    setLiveStatus("online", "Локальный сервер подключён", `Открыто клиентов: ${realtime.clients}. Сообщения идут в реальном времени.`);
+  });
+
+  source.addEventListener("snapshot", (event) => {
+    const data = JSON.parse(event.data);
+    applyServerMessages(data.messages || [], { replace: true });
+  });
+
+  source.addEventListener("message", (event) => {
+    applyServerMessages([JSON.parse(event.data)]);
+  });
+
+  source.addEventListener("presence", (event) => {
+    const data = JSON.parse(event.data);
+    realtime.clients = data.clients || realtime.clients || 1;
+    if (realtime.available) {
+      setLiveStatus("online", "Локальный сервер подключён", `Открыто клиентов: ${realtime.clients}. Сообщения идут в реальном времени.`);
+    }
+  });
+
+  source.onerror = () => {
+    realtime.connected = false;
+    if (realtime.available) {
+      setLiveStatus("checking", "Переподключаюсь…", "Поток сообщений временно оборвался, браузер пробует восстановить связь.");
+    }
+  };
+}
+
+async function initRealtime() {
+  setLiveStatus("checking", "Проверяю локальный сервер…", "Живой чат включится, если страница открыта через сервер v0.3.");
+  try {
+    const health = await fetchJson("/api/health", { timeout: 1600 });
+    realtime.available = Boolean(health.ok);
+    realtime.clients = health.clients || 0;
+    const snapshot = await fetchJson(`/api/messages?chatId=${LIVE_CHAT_ID}`, { timeout: 1600 });
+    applyServerMessages(snapshot.messages || [], { replace: true });
+    connectEventStream();
+  } catch {
+    realtime.available = false;
+    realtime.connected = false;
+    setLiveStatus("offline", "Живой сервер не запущен", "Запустите ./script/run_local_chat.sh и откройте http://127.0.0.1:4173.");
+  }
 }
 
 function setTheme(theme) {
@@ -463,11 +702,13 @@ function addImportedPacketToChat(payload) {
   openChat(chat.id);
 }
 
-$("#composer").addEventListener("submit", (event) => {
+$("#composer").addEventListener("submit", async (event) => {
   event.preventDefault();
-  sendMessage(messageInput.value);
-  messageInput.value = "";
-  resizeComposer();
+  const sent = await sendMessage(messageInput.value);
+  if (sent) {
+    messageInput.value = "";
+    resizeComposer();
+  }
 });
 
 messageInput.addEventListener("input", resizeComposer);
@@ -588,6 +829,7 @@ setSection(activeSection);
 renderChatList();
 updateHeader();
 renderMessages();
+initRealtime();
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("./sw.js").catch(() => {});

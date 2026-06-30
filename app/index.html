@@ -9,7 +9,7 @@
     <title>Маяк — мессенджер</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=3" />
+    <link rel="stylesheet" href="styles.css?v=4" />
   </head>
   <body>
     <svg class="svg-sprite" aria-hidden="true">
@@ -53,7 +53,7 @@
 
       <section class="inbox" aria-label="Диалоги">
         <header class="inbox-header">
-          <div><p class="eyebrow">Локальный стенд v0.2</p><h1>Маяк</h1></div>
+          <div><p class="eyebrow">Локальный стенд v0.3</p><h1>Маяк</h1></div>
           <button class="icon-button compose-button" aria-label="Новый диалог"><svg><use href="#i-edit"/></svg></button>
         </header>
         <label class="search-field">
@@ -68,8 +68,15 @@
         <div class="prototype-card" id="prototypeCard">
           <div class="prototype-icon"><svg><use href="#i-cloud"/></svg></div>
           <div>
-            <strong>Это уже не просто картинка</strong>
-            <p>Можно писать демо-сообщения, создавать локальные чаты, переключать разделы и тему. Flutter-база под iOS/Android/Mac лежит отдельно.</p>
+            <strong>Теперь есть живой локальный чат</strong>
+            <p>Откройте этот адрес в двух окнах: сообщения в диалоге «Живой чат» прилетают через локальный сервер без перезагрузки.</p>
+          </div>
+        </div>
+        <div class="live-status-card" id="liveStatus">
+          <span class="live-dot checking"></span>
+          <div>
+            <strong id="liveStatusTitle">Проверяю локальный сервер…</strong>
+            <p id="liveStatusText">Если открыт обычный static-прототип, живой чат останется в демо-режиме.</p>
           </div>
         </div>
         <div class="panel-stack">
@@ -172,8 +179,8 @@
         </div>
         <div class="project-status">
           <strong>Статус прототипа</strong>
-          <p><svg><use href="#i-lock"/></svg> Следующий шаг: аккаунты, сервер и синхронизация.</p>
-          <p><svg><use href="#i-cloud"/></svg> Уже есть: локальный UI + Flutter-основа под устройства.</p>
+          <p><svg><use href="#i-lock"/></svg> Следующий шаг: аккаунты, шифрование и синхронизация между устройствами.</p>
+          <p><svg><use href="#i-cloud"/></svg> Уже есть: локальный realtime-сервер, web UI и Flutter-основа под устройства.</p>
           <button id="emergencyButton"><svg><use href="#i-route"/></svg>Аварийная доставка</button>
         </div>
         <div class="details-section">
@@ -238,6 +245,6 @@
     </div>
 
     <div class="toast" id="toast" role="status"></div>
-    <script src="app.js?v=3" defer></script>
+    <script src="app.js?v=4" defer></script>
   </body>
 </html>

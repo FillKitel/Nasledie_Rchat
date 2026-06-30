@@ -191,6 +191,30 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-lineca
 .prototype-card svg { width: 19px; }
 .prototype-card strong { display: block; margin-bottom: 3px; font-size: 12px; }
 .prototype-card p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.42; }
+.live-status-card {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  margin: -2px 20px 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-soft) 68%, var(--surface));
+}
+.live-dot {
+  width: 9px;
+  height: 9px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: #9aa3b4;
+  box-shadow: 0 0 0 4px color-mix(in srgb, #9aa3b4 14%, transparent);
+}
+.live-dot.online { background: #43c791; box-shadow: 0 0 0 4px color-mix(in srgb, #43c791 17%, transparent); }
+.live-dot.offline { background: #ef7d74; box-shadow: 0 0 0 4px color-mix(in srgb, #ef7d74 15%, transparent); }
+.live-dot.checking { background: #f1a640; box-shadow: 0 0 0 4px color-mix(in srgb, #f1a640 16%, transparent); }
+.live-status-card strong { display: block; margin-bottom: 3px; font-size: 11px; }
+.live-status-card p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.38; }
 .panel-stack { position: relative; min-height: 0; flex: 1; }
 .content-panel { display: none; height: 100%; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 .content-panel.active { display: block; }
@@ -311,6 +335,21 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-lineca
 .messages { display: flex; width: min(720px, calc(100% - 42px)); min-height: 100%; flex-direction: column; justify-content: flex-end; gap: 8px; margin: 0 auto; padding: 30px 0 18px; }
 .day-divider { display: flex; align-items: center; align-self: center; gap: 10px; margin: 8px 0 16px; color: var(--muted); font-size: 10px; font-weight: 650; }
 .day-divider::before, .day-divider::after { content: ""; width: 30px; height: 1px; background: var(--line); }
+.empty-chat {
+  align-self: center;
+  max-width: 360px;
+  margin: auto 0;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 18px;
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  color: var(--muted);
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+  box-shadow: 0 10px 30px rgba(30, 38, 63, .06);
+}
+.empty-chat strong { display: block; margin-bottom: 6px; color: var(--text); font-size: 14px; }
 .message { display: flex; max-width: min(78%, 510px); flex-direction: column; animation: message-in .22s ease both; }
 .message.in { align-self: flex-start; align-items: flex-start; }
 .message.out { align-self: flex-end; align-items: flex-end; }
@@ -319,6 +358,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-lineca
 .message.in:not(.grouped) .bubble { border-bottom-left-radius: 6px; }
 .message.out:not(.grouped) .bubble { border-bottom-right-radius: 6px; }
 .message.out .bubble { background: var(--bubble-out); color: var(--bubble-out-text); box-shadow: 0 7px 20px rgba(82,102,232,.15); }
+.message-author { display: block; margin-bottom: 5px; color: var(--accent); font-size: 10px; font-weight: 800; }
 .message-time { display: inline-flex; float: right; align-items: center; gap: 3px; margin: 6px 0 0 12px; color: color-mix(in srgb, currentColor 62%, transparent); font-size: 9px; line-height: 1; }
 .checks { font-weight: 750; letter-spacing: -3px; padding-right: 3px; }
 .reaction { display: flex; align-items: center; gap: 3px; margin-top: -5px; border: 2px solid var(--surface-soft); border-radius: 12px; padding: 2px 6px; background: var(--surface); font-size: 11px; box-shadow: 0 2px 6px rgba(0,0,0,.05); cursor: pointer; }
@@ -535,7 +575,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-lineca
   .inbox h1 { font-size: 27px; }
   .search-field { margin: 0 16px; }
   .filter-row { padding-inline: 16px; }
-  .prototype-card { margin-inline: 16px; }
+  .prototype-card, .live-status-card { margin-inline: 16px; }
   .chat-list, .side-panel { padding-inline: 7px; padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
   .chat-item { padding: 11px; }
   .mobile-tabs { position: absolute; inset: auto 0 0; display: grid; grid-template-columns: repeat(4, 1fr); height: calc(66px + env(safe-area-inset-bottom)); padding: 7px 8px env(safe-area-inset-bottom); border-top: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(20px); }
