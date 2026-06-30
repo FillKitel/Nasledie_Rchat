@@ -1,4 +1,4 @@
-const CACHE = "mayak-shell-v5";
+const CACHE = "mayak-shell-v6";
 const ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./icon.svg", "./manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {

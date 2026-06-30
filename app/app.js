@@ -202,7 +202,8 @@ const newChatForm = $("#newChatForm");
 const offlineModal = $("#offlineModal");
 const offlinePacketForm = $("#offlinePacketForm");
 const liveStatus = $("#liveStatus");
-const connectPhoneCard = $("#connectPhoneCard");
+const connectModal = $("#connectModal");
+const connectRoomButton = $("#connectRoomButton");
 
 function escapeHtml(value) {
   return String(value)
@@ -294,6 +295,7 @@ function updateHeader() {
   $("#detailsName").textContent = chat.name;
   $("#detailsHandle").textContent = chat.handle;
   $("#detailsBio").textContent = chat.bio;
+  connectRoomButton.hidden = chat.id !== LIVE_CHAT_ID;
   const headerOnlineDot = $(".person-heading .online-dot");
   if (headerOnlineDot) headerOnlineDot.style.display = chat.status === "в сети" ? "block" : "none";
 }
@@ -394,8 +396,10 @@ function setLiveStatus(state, title, text) {
 }
 
 function setConnectCardUnavailable() {
-  connectPhoneCard.hidden = true;
   realtime.connectUrl = "";
+  $("#connectUrl").href = "#";
+  $("#connectUrl").textContent = "запустите локальный сервер";
+  $("#connectQr").removeAttribute("src");
 }
 
 function selectConnectUrl() {
@@ -417,10 +421,19 @@ async function loadConnectInfo() {
     connectUrl.href = info.primaryUrl;
     connectUrl.textContent = info.primaryUrl;
     connectQr.src = `${info.qrSvgUrl}&t=${Date.now()}`;
-    connectPhoneCard.hidden = false;
   } catch {
     setConnectCardUnavailable();
   }
+}
+
+async function openConnectModal() {
+  connectModal.hidden = false;
+  await loadConnectInfo();
+  if (!realtime.connectUrl) showToast("Не удалось получить адрес локальной комнаты");
+}
+
+function closeConnectModal() {
+  connectModal.hidden = true;
 }
 
 async function copyText(value) {
@@ -815,6 +828,7 @@ document.querySelectorAll("[data-demo-toast]").forEach((button) => {
 document.querySelectorAll("[data-open-chat]").forEach((button) => {
   button.addEventListener("click", () => openChat(button.dataset.openChat));
 });
+connectRoomButton.addEventListener("click", openConnectModal);
 $("#copyConnectUrl").addEventListener("click", async () => {
   if (!realtime.connectUrl) return showToast("Сначала запустите локальный сервер");
   const copied = await copyText(realtime.connectUrl);
@@ -824,6 +838,12 @@ $("#copyConnectUrl").addEventListener("click", async () => {
 $("#refreshConnectInfo").addEventListener("click", async () => {
   await loadConnectInfo();
   showToast(realtime.connectUrl ? "QR обновлён" : "Не удалось получить адрес");
+});
+document.querySelectorAll("[data-connect-close]").forEach((button) => {
+  button.addEventListener("click", closeConnectModal);
+});
+connectModal.addEventListener("click", (event) => {
+  if (event.target === connectModal) closeConnectModal();
 });
 document.querySelectorAll("[data-modal-close]").forEach((button) => {
   button.addEventListener("click", closeNewChatModal);
@@ -886,6 +906,7 @@ $("#importPacketButton").addEventListener("click", async () => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !newChatModal.hidden) closeNewChatModal();
   if (event.key === "Escape" && !offlineModal.hidden) closeOfflineModal();
+  if (event.key === "Escape" && !connectModal.hidden) closeConnectModal();
 });
 
 const preferredTheme = localStorage.getItem("mayak-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");

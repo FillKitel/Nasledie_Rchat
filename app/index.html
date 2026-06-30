@@ -9,7 +9,7 @@
     <title>Маяк — мессенджер</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=5" />
+    <link rel="stylesheet" href="styles.css?v=6" />
   </head>
   <body>
     <svg class="svg-sprite" aria-hidden="true">
@@ -65,37 +65,24 @@
           <button class="filter active" data-filter="all">Все <span id="allCount">6</span></button>
           <button class="filter" data-filter="unread">Непрочитанные <span id="unreadCount">3</span></button>
         </div>
-        <div class="prototype-card" id="prototypeCard">
-          <div class="prototype-icon"><svg><use href="#i-cloud"/></svg></div>
-          <div>
-            <strong>Теперь есть живой локальный чат</strong>
-            <p>Откройте этот адрес в двух окнах: сообщения в диалоге «Живой чат» прилетают через локальный сервер без перезагрузки.</p>
-          </div>
-        </div>
-        <div class="live-status-card" id="liveStatus">
-          <span class="live-dot checking"></span>
-          <div>
-            <strong id="liveStatusTitle">Проверяю локальный сервер…</strong>
-            <p id="liveStatusText">Если открыт обычный static-прототип, живой чат останется в демо-режиме.</p>
-          </div>
-        </div>
-        <div class="connect-card" id="connectPhoneCard" hidden>
-          <div class="connect-card-copy">
-            <p class="eyebrow">iPhone / Android</p>
-            <strong>Подключить телефон</strong>
-            <span>Откройте камеру вашего телефона, наведите на QR-код и запустите «Маяк». Телефон должен быть в той же Wi‑Fi сети.</span>
-            <a id="connectUrl" href="#" target="_blank" rel="noreferrer">адрес появится после подключения</a>
-            <div class="connect-actions">
-              <button type="button" id="copyConnectUrl"><svg><use href="#i-copy"/></svg>Скопировать</button>
-              <button type="button" id="refreshConnectInfo"><svg><use href="#i-route"/></svg>Обновить</button>
-            </div>
-          </div>
-          <div class="qr-frame">
-            <img id="connectQr" alt="QR-код для подключения телефона" />
-          </div>
-        </div>
         <div class="panel-stack">
-          <div class="chat-list content-panel active" id="chatList" data-section-panel="chats"></div>
+          <div class="content-panel chats-panel active" data-section-panel="chats">
+            <div class="prototype-card" id="prototypeCard">
+              <div class="prototype-icon"><svg><use href="#i-cloud"/></svg></div>
+              <div>
+                <strong>Теперь есть живой локальный чат</strong>
+                <p>Откройте этот адрес в двух окнах: сообщения в диалоге «Живой чат» прилетают через локальный сервер без перезагрузки.</p>
+              </div>
+            </div>
+            <div class="live-status-card" id="liveStatus">
+              <span class="live-dot checking"></span>
+              <div>
+                <strong id="liveStatusTitle">Проверяю локальный сервер…</strong>
+                <p id="liveStatusText">Если открыт обычный static-прототип, живой чат останется в демо-режиме.</p>
+              </div>
+            </div>
+            <div class="chat-list" id="chatList"></div>
+          </div>
 
           <div class="side-panel content-panel" data-section-panel="calls" aria-label="Звонки">
             <div class="panel-title">
@@ -159,6 +146,7 @@
             <span><i class="online-dot"></i><span id="headerStatus">в сети</span></span>
           </button>
           <div class="header-actions">
+            <button class="local-room-button" id="connectRoomButton" type="button" aria-label="Локальная комната" hidden><svg><use href="#i-route"/></svg><span>Локальная комната</span></button>
             <button class="icon-button" aria-label="Аудиозвонок"><svg><use href="#i-phone"/></svg></button>
             <button class="icon-button video-action" aria-label="Видеозвонок"><svg><use href="#i-video"/></svg></button>
             <button class="icon-button info-button" aria-label="Информация"><svg><use href="#i-info"/></svg></button>
@@ -259,7 +247,30 @@
       </section>
     </div>
 
+    <div class="modal-backdrop" id="connectModal" hidden>
+      <section class="modal-card connect-modal-card" aria-label="Локальная комната">
+        <div class="modal-head">
+          <div><p class="eyebrow">Локальная комната</p><h2>Подключить телефон</h2></div>
+          <button type="button" class="icon-button" data-connect-close aria-label="Закрыть"><svg><use href="#i-back"/></svg></button>
+        </div>
+        <div class="connect-modal-grid">
+          <div class="connect-card-copy">
+            <strong>QR-код для входа в живой чат</strong>
+            <span>Откройте камеру вашего телефона, наведите на QR-код и запустите «Маяк». Телефон должен быть в той же Wi‑Fi сети.</span>
+            <a id="connectUrl" href="#" target="_blank" rel="noreferrer">адрес появится после подключения</a>
+            <div class="connect-actions">
+              <button type="button" id="copyConnectUrl"><svg><use href="#i-copy"/></svg>Скопировать</button>
+              <button type="button" id="refreshConnectInfo"><svg><use href="#i-route"/></svg>Обновить QR</button>
+            </div>
+          </div>
+          <div class="qr-frame">
+            <img id="connectQr" alt="QR-код для подключения телефона" />
+          </div>
+        </div>
+      </section>
+    </div>
+
     <div class="toast" id="toast" role="status"></div>
-    <script src="app.js?v=5" defer></script>
+    <script src="app.js?v=6" defer></script>
   </body>
 </html>
