@@ -155,7 +155,7 @@ function connectInfo(req) {
     localUrl,
     urls: [primaryUrl, ...urls.filter((url) => url !== primaryUrl), localUrl],
     qrSvgUrl: `/api/connect.svg?url=${encodeURIComponent(primaryUrl)}`,
-    hint: "Подключите iPhone к той же Wi‑Fi сети, наведите камеру на QR и откройте ссылку в Safari."
+    hint: "Подключите телефон к той же Wi‑Fi сети, откройте камеру и наведите её на QR-код."
   };
 }
 
@@ -441,6 +441,6 @@ const server = http.createServer((req, res) => {
 server.listen(port, host, () => {
   console.log(`Mayak local realtime is running: http://127.0.0.1:${port}`);
   const urls = localNetworkUrls({ headers: {} });
-  if (urls[0]) console.log(`Phone/iPhone LAN URL: ${urls[0]}`);
+  if (urls[0]) console.log(`Phone LAN URL: ${urls[0]}`);
   console.log("Open the URL in two tabs/devices and send a message in “Живой чат”.");
 });
