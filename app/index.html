@@ -9,7 +9,7 @@
     <title>Маяк — мессенджер</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=6" />
+    <link rel="stylesheet" href="styles.css?v=9" />
   </head>
   <body>
     <svg class="svg-sprite" aria-hidden="true">
@@ -47,14 +47,17 @@
         </div>
         <div class="rail-bottom">
           <button class="rail-button theme-toggle" aria-label="Сменить тему"><svg class="moon"><use href="#i-moon"/></svg><svg class="sun"><use href="#i-sun"/></svg></button>
-          <button class="avatar avatar-me" aria-label="Профиль">АР</button>
+          <button class="avatar avatar-me" id="profileButton" type="button" aria-label="Профиль">??</button>
         </div>
       </nav>
 
       <section class="inbox" aria-label="Диалоги">
         <header class="inbox-header">
-          <div><p class="eyebrow">Локальный стенд v0.4</p><h1>Маяк</h1></div>
-          <button class="icon-button compose-button" aria-label="Новый диалог"><svg><use href="#i-edit"/></svg></button>
+          <div><p class="eyebrow">Локальный стенд v0.5</p><h1>Маяк</h1></div>
+          <div class="inbox-actions">
+            <button class="mini-profile-button" id="inboxProfileButton" type="button" aria-label="Профиль">??</button>
+            <button class="icon-button compose-button" aria-label="Новый диалог"><svg><use href="#i-edit"/></svg></button>
+          </div>
         </header>
         <label class="search-field">
           <svg><use href="#i-search"/></svg>
@@ -139,7 +142,7 @@
 
       <section class="conversation" aria-label="Открытый диалог">
         <header class="conversation-header">
-          <button class="icon-button back-button" aria-label="Назад"><svg><use href="#i-back"/></svg></button>
+          <button class="icon-button back-button" aria-label="Вернуться к чатам"><svg><use href="#i-back"/></svg><span class="back-label">Чаты</span></button>
           <div class="avatar" id="headerAvatar">МК</div>
           <button class="person-heading" id="personHeading">
             <strong id="headerName">Марина Котова</strong>
@@ -182,8 +185,8 @@
         </div>
         <div class="project-status">
           <strong>Статус прототипа</strong>
-          <p><svg><use href="#i-lock"/></svg> Следующий шаг: аккаунты, шифрование и синхронизация между устройствами.</p>
-          <p><svg><use href="#i-cloud"/></svg> Уже есть: локальный realtime-сервер, web UI, QR-подключение телефона и Flutter-основа.</p>
+          <p><svg><use href="#i-lock"/></svg> Следующий шаг: облачная регистрация, доверенные устройства, шифрование и синхронизация.</p>
+          <p><svg><use href="#i-cloud"/></svg> Уже есть: локальный профиль, realtime-сервер, web UI, QR-подключение телефона и Flutter-основа.</p>
           <button id="emergencyButton"><svg><use href="#i-route"/></svg>Аварийная доставка</button>
         </div>
         <div class="details-section">
@@ -270,7 +273,35 @@
       </section>
     </div>
 
+    <div class="modal-backdrop profile-modal-backdrop" id="profileModal" hidden>
+      <form class="modal-card profile-modal-card" id="profileForm" novalidate>
+        <div class="modal-head">
+          <div><p class="eyebrow" id="profileEyebrow">Первый вход</p><h2 id="profileTitle">Создать профиль</h2></div>
+          <button type="button" class="icon-button" id="profileCloseButton" data-profile-close aria-label="Закрыть"><svg><use href="#i-back"/></svg></button>
+        </div>
+        <div class="profile-hero">
+          <div class="avatar profile-preview-avatar" id="profilePreviewAvatar">??</div>
+          <div>
+            <strong id="profilePreviewName">Локальный профиль</strong>
+            <p id="profilePreviewMeta">Пока без облачного аккаунта: имя хранится только на этом устройстве.</p>
+          </div>
+        </div>
+        <label>Ваше имя<input id="profileName" maxlength="60" autocomplete="name" placeholder="Например: Роман" required /></label>
+        <label>Username<input id="profileHandle" maxlength="40" autocomplete="off" placeholder="@roman" /></label>
+        <label>Название устройства<input id="profileDeviceName" maxlength="60" autocomplete="off" placeholder="Например: Mac Романа" /></label>
+        <div class="device-id-row">
+          <span>ID устройства</span>
+          <code id="profileDeviceId">—</code>
+        </div>
+        <p class="profile-note">Это ещё не облачная регистрация. Сейчас мы создаём локальную личность, чтобы сообщения шли от человека, а не от «Устройства XXXX».</p>
+        <div class="modal-actions">
+          <button type="button" id="profileCancelButton" data-profile-close>Отмена</button>
+          <button type="submit" id="profileSubmitButton"><svg><use href="#i-lock"/></svg>Создать профиль</button>
+        </div>
+      </form>
+    </div>
+
     <div class="toast" id="toast" role="status"></div>
-    <script src="app.js?v=6" defer></script>
+    <script src="app.js?v=9" defer></script>
   </body>
 </html>

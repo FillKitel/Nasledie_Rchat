@@ -110,6 +110,9 @@ function normalizeMessage(input) {
     text,
     authorId: String(input.authorId || "anonymous"),
     authorName: String(input.authorName || "Локальное устройство").trim().slice(0, 80),
+    authorHandle: String(input.authorHandle || "").trim().slice(0, 80),
+    deviceId: String(input.deviceId || "").trim().slice(0, 120),
+    deviceName: String(input.deviceName || "").trim().slice(0, 80),
     createdAt: now,
     receivedAt: now,
     route: "local-server"
@@ -169,7 +172,7 @@ function appendBits(bits, value, length) {
 
 function qrDataCodewords(text) {
   const data = Buffer.from(text, "utf8");
-  if (data.length > 53) throw new Error("QR payload is too long for v0.4 demo");
+  if (data.length > 53) throw new Error("QR payload is too long for v0.5 demo");
 
   const bits = [];
   appendBits(bits, 0x4, 4);
@@ -365,7 +368,7 @@ async function handleApi(req, res, url) {
     sendJson(res, 200, {
       ok: true,
       name: "Mayak local realtime",
-      version: "0.4",
+      version: "0.5",
       clients: clients.size,
       messages: messages.length
     });

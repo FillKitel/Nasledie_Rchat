@@ -104,9 +104,10 @@ const seedChats = [
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const STORAGE_KEY = "mayak-chats-v2";
+const PROFILE_KEY = "mayak-profile-v1";
 const LIVE_CHAT_ID = "live";
-const CLIENT_ID_KEY = "mayak-client-session-id";
 const CLIENT_NAME_KEY = "mayak-client-name";
+const DEVICE_ID_KEY = "mayak-device-id-v1";
 const stored = localStorage.getItem(STORAGE_KEY);
 let chats;
 
@@ -122,15 +123,6 @@ function makeId(prefix) {
   return `${prefix}-${random}`;
 }
 
-function getSessionValue(key, fallback) {
-  try {
-    const existing = sessionStorage.getItem(key);
-    if (existing) return existing;
-    sessionStorage.setItem(key, fallback);
-  } catch {}
-  return fallback;
-}
-
 function getLocalValue(key, fallback) {
   try {
     const existing = localStorage.getItem(key);
@@ -140,8 +132,72 @@ function getLocalValue(key, fallback) {
   return fallback;
 }
 
-const clientId = getSessionValue(CLIENT_ID_KEY, makeId("client"));
-const clientName = getLocalValue(CLIENT_NAME_KEY, `Устройство ${clientId.slice(-4).toLocaleUpperCase("ru")}`);
+function normalizeHandle(value, name = "") {
+  const source = String(value || name || "mayak")
+    .trim()
+    .replace(/^@+/, "")
+    .toLocaleLowerCase("ru");
+  const clean = source
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zа-яё0-9_]/gi, "")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 32);
+  return `@${clean || "mayak"}`;
+}
+
+function defaultDeviceName() {
+  const ua = navigator.userAgent || "";
+  if (/iPhone/i.test(ua)) return "iPhone";
+  if (/iPad/i.test(ua)) return "iPad";
+  if (/Android/i.test(ua)) return "Android";
+  if (/Mac/i.test(ua)) return "Mac";
+  return "Устройство Маяка";
+}
+
+function loadProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const name = String(parsed.name || "").trim();
+    const id = String(parsed.id || "").trim();
+    if (!name || !id) return null;
+    return {
+      id,
+      name: name.slice(0, 60),
+      handle: normalizeHandle(parsed.handle, name),
+      initials: makeInitials(name),
+      deviceName: String(parsed.deviceName || defaultDeviceName()).trim().slice(0, 60),
+      createdAt: parsed.createdAt || new Date().toISOString(),
+      updatedAt: parsed.updatedAt || parsed.createdAt || new Date().toISOString()
+    };
+  } catch {
+    return null;
+  }
+}
+
+function defaultProfileName() {
+  const legacy = localStorage.getItem(CLIENT_NAME_KEY);
+  if (legacy && !legacy.startsWith("Устройство ")) return legacy;
+  return "";
+}
+
+const deviceId = getLocalValue(DEVICE_ID_KEY, makeId("device"));
+let profile = loadProfile();
+
+function currentAuthorId() {
+  return profile?.id || deviceId;
+}
+
+function currentAuthorName() {
+  return profile?.name || defaultProfileName() || `Устройство ${deviceId.slice(-4).toLocaleUpperCase("ru")}`;
+}
+
+function currentDeviceName() {
+  return profile?.deviceName || defaultDeviceName();
+}
+
 const realtime = {
   available: false,
   connected: false,
@@ -204,6 +260,13 @@ const offlinePacketForm = $("#offlinePacketForm");
 const liveStatus = $("#liveStatus");
 const connectModal = $("#connectModal");
 const connectRoomButton = $("#connectRoomButton");
+const profileModal = $("#profileModal");
+const profileForm = $("#profileForm");
+const profileNameInput = $("#profileName");
+const profileHandleInput = $("#profileHandle");
+const profileDeviceNameInput = $("#profileDeviceName");
+const profileButtons = [$("#profileButton"), $("#inboxProfileButton")].filter(Boolean);
+let profileHandleTouched = false;
 
 function escapeHtml(value) {
   return String(value)
@@ -300,6 +363,34 @@ function updateHeader() {
   if (headerOnlineDot) headerOnlineDot.style.display = chat.status === "в сети" ? "block" : "none";
 }
 
+function isMobileLayout() {
+  return window.matchMedia("(max-width: 820px)").matches;
+}
+
+function renderActiveChat() {
+  renderChatList();
+  updateHeader();
+  renderMessages();
+}
+
+function openConversationPanel({ pushHistory = true } = {}) {
+  appShell.classList.add("chat-open");
+  if (!pushHistory || !isMobileLayout()) return;
+  if (history.state?.mayakChatOpen) {
+    history.replaceState({ mayakChatOpen: true, chatId: activeChatId }, "", location.href);
+    return;
+  }
+  history.pushState({ mayakChatOpen: true, chatId: activeChatId }, "", location.href);
+}
+
+function closeConversationPanel() {
+  if (isMobileLayout() && history.state?.mayakChatOpen) {
+    history.back();
+    return;
+  }
+  appShell.classList.remove("chat-open");
+}
+
 function openChat(id) {
   const chat = chats.find((item) => item.id === id);
   if (!chat) return;
@@ -308,10 +399,8 @@ function openChat(id) {
   chat.unread = 0;
   save();
   setSection("chats");
-  renderChatList();
-  updateHeader();
-  renderMessages();
-  appShell.classList.add("chat-open");
+  renderActiveChat();
+  openConversationPanel();
   if (window.innerWidth > 820) messageInput.focus();
 }
 
@@ -464,7 +553,7 @@ function formatServerTime(value) {
 function mapServerMessage(message) {
   return {
     id: message.id,
-    direction: message.authorId === clientId ? "out" : "in",
+    direction: message.authorId === currentAuthorId() || message.deviceId === deviceId ? "out" : "in",
     authorName: message.authorName,
     text: message.text,
     time: formatServerTime(message.createdAt)
@@ -521,6 +610,12 @@ async function fetchJson(url, options = {}) {
 }
 
 async function sendRealtimeMessage(text) {
+  if (!profile) {
+    openProfileModal({ required: true });
+    showToast("Сначала создайте локальный профиль");
+    return false;
+  }
+
   if (!realtime.available) {
     showToast("Локальный сервер не подключён");
     return false;
@@ -532,8 +627,11 @@ async function sendRealtimeMessage(text) {
       body: JSON.stringify({
         chatId: LIVE_CHAT_ID,
         text,
-        authorId: clientId,
-        authorName: clientName
+        authorId: currentAuthorId(),
+        authorName: currentAuthorName(),
+        authorHandle: profile.handle,
+        deviceId,
+        deviceName: currentDeviceName()
       }),
       timeout: 3500
     });
@@ -550,7 +648,7 @@ async function sendRealtimeMessage(text) {
 
 function connectEventStream() {
   realtime.source?.close();
-  const source = new EventSource(`/api/events?clientId=${encodeURIComponent(clientId)}`);
+  const source = new EventSource(`/api/events?clientId=${encodeURIComponent(deviceId)}`);
   realtime.source = source;
 
   source.addEventListener("hello", (event) => {
@@ -586,7 +684,7 @@ function connectEventStream() {
 }
 
 async function initRealtime() {
-  setLiveStatus("checking", "Проверяю локальный сервер…", "Живой чат включится, если страница открыта через сервер v0.4.");
+  setLiveStatus("checking", "Проверяю локальный сервер…", "Живой чат включится, если страница открыта через сервер v0.5.");
   try {
     const health = await fetchJson("/api/health", { timeout: 1600 });
     realtime.available = Boolean(health.ok);
@@ -627,6 +725,85 @@ function makeInitials(name) {
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (!words.length) return "??";
   return words.slice(0, 2).map((word) => word[0]).join("").toLocaleUpperCase("ru");
+}
+
+function shortDeviceId() {
+  return deviceId.replace(/^device-/, "").slice(0, 18);
+}
+
+function updateProfilePreview() {
+  const name = profileNameInput.value.trim() || "Локальный профиль";
+  const handle = normalizeHandle(profileHandleInput.value, name);
+  const deviceName = profileDeviceNameInput.value.trim() || defaultDeviceName();
+  $("#profilePreviewAvatar").textContent = makeInitials(name);
+  $("#profilePreviewName").textContent = name;
+  $("#profilePreviewMeta").textContent = `${handle} · ${deviceName}`;
+}
+
+function renderProfileChrome() {
+  const name = currentAuthorName();
+  const initials = makeInitials(name);
+  const label = profile ? `${profile.name} ${profile.handle}` : "Создать профиль";
+  profileButtons.forEach((button) => {
+    button.textContent = initials;
+    button.title = label;
+    button.setAttribute("aria-label", label);
+  });
+}
+
+function fillProfileForm({ required = false } = {}) {
+  profileHandleTouched = Boolean(profile?.handle);
+  profileModal.dataset.required = required ? "true" : "false";
+  $("#profileEyebrow").textContent = profile ? "Локальный профиль" : "Первый вход";
+  $("#profileTitle").textContent = profile ? "Ваш профиль" : "Создать профиль";
+  $("#profileSubmitButton").innerHTML = profile
+    ? '<svg><use href="#i-lock"/></svg>Сохранить'
+    : '<svg><use href="#i-lock"/></svg>Создать профиль';
+  profileNameInput.value = profile?.name || defaultProfileName();
+  profileHandleInput.value = profile?.handle || normalizeHandle("", profileNameInput.value);
+  profileDeviceNameInput.value = profile?.deviceName || defaultDeviceName();
+  $("#profileDeviceId").textContent = shortDeviceId();
+  updateProfilePreview();
+}
+
+function openProfileModal({ required = false } = {}) {
+  fillProfileForm({ required: required || !profile });
+  profileModal.hidden = false;
+  requestAnimationFrame(() => profileNameInput.focus());
+}
+
+function closeProfileModal() {
+  if (profileModal.dataset.required === "true" && !profile) return;
+  profileModal.hidden = true;
+}
+
+function saveProfileFromForm() {
+  const name = profileNameInput.value.trim().replace(/\s+/g, " ").slice(0, 60);
+  if (name.length < 2) {
+    showToast("Введите имя профиля");
+    profileNameInput.focus();
+    return false;
+  }
+
+  const now = new Date().toISOString();
+  profile = {
+    id: profile?.id || makeId("profile"),
+    name,
+    handle: normalizeHandle(profileHandleInput.value, name),
+    initials: makeInitials(name),
+    deviceName: (profileDeviceNameInput.value.trim() || defaultDeviceName()).slice(0, 60),
+    createdAt: profile?.createdAt || now,
+    updatedAt: now
+  };
+
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  localStorage.setItem(CLIENT_NAME_KEY, profile.name);
+  renderProfileChrome();
+  updateHeader();
+  renderMessages();
+  profileModal.hidden = true;
+  showToast("Профиль сохранён");
+  return true;
 }
 
 function openNewChatModal() {
@@ -807,11 +984,41 @@ document.querySelectorAll(".theme-toggle").forEach((button) => {
   button.addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
 });
 
+profileButtons.forEach((button) => {
+  button.addEventListener("click", () => openProfileModal({ required: false }));
+});
+
+profileNameInput.addEventListener("input", () => {
+  if (!profileHandleTouched) profileHandleInput.value = normalizeHandle("", profileNameInput.value);
+  updateProfilePreview();
+});
+
+profileHandleInput.addEventListener("input", () => {
+  profileHandleTouched = true;
+  profileHandleInput.value = normalizeHandle(profileHandleInput.value, profileNameInput.value);
+  updateProfilePreview();
+});
+
+profileDeviceNameInput.addEventListener("input", updateProfilePreview);
+
+document.querySelectorAll("[data-profile-close]").forEach((button) => {
+  button.addEventListener("click", closeProfileModal);
+});
+
+profileModal.addEventListener("click", (event) => {
+  if (event.target === profileModal) closeProfileModal();
+});
+
+profileForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  saveProfileFromForm();
+});
+
 document.querySelectorAll("[data-section]").forEach((button) => {
   button.addEventListener("click", () => setSection(button.dataset.section));
 });
 
-$(".back-button").addEventListener("click", () => appShell.classList.remove("chat-open"));
+$(".back-button").addEventListener("click", closeConversationPanel);
 $(".compose-button").addEventListener("click", openNewChatModal);
 $(".attach-button").addEventListener("click", () => showToast("Фото, видео и файлы добавим на следующем этапе"));
 $(".emoji-button").addEventListener("click", () => {
@@ -875,7 +1082,7 @@ offlinePacketForm.addEventListener("submit", async (event) => {
   if (!crypto.subtle) return showToast("В этом браузере недоступна Web Crypto");
   const packet = await encryptOfflinePayload({
     id: `msg-${Date.now()}`,
-    fromName: "Локальное устройство",
+    fromName: currentAuthorName(),
     to,
     text,
     createdAt: new Date().toISOString(),
@@ -907,15 +1114,31 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !newChatModal.hidden) closeNewChatModal();
   if (event.key === "Escape" && !offlineModal.hidden) closeOfflineModal();
   if (event.key === "Escape" && !connectModal.hidden) closeConnectModal();
+  if (event.key === "Escape" && !profileModal.hidden) closeProfileModal();
+});
+
+window.addEventListener("popstate", (event) => {
+  if (!isMobileLayout()) return;
+  if (event.state?.mayakChatOpen) {
+    const chat = chats.find((item) => item.id === event.state.chatId);
+    if (chat) activeChatId = chat.id;
+    setSection("chats");
+    renderActiveChat();
+    appShell.classList.add("chat-open");
+    return;
+  }
+  appShell.classList.remove("chat-open");
 });
 
 const preferredTheme = localStorage.getItem("mayak-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 setTheme(preferredTheme);
 setSection(activeSection);
+renderProfileChrome();
 renderChatList();
 updateHeader();
 renderMessages();
 initRealtime();
+if (!profile) requestAnimationFrame(() => openProfileModal({ required: true }));
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("./sw.js").catch(() => {});
