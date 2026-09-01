@@ -9,7 +9,7 @@
     <title>Маяк — мессенджер</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=9" />
+    <link rel="stylesheet" href="styles.css?v=11" />
   </head>
   <body>
     <svg class="svg-sprite" aria-hidden="true">
@@ -53,7 +53,7 @@
 
       <section class="inbox" aria-label="Диалоги">
         <header class="inbox-header">
-          <div><p class="eyebrow">Локальный стенд v0.5</p><h1>Маяк</h1></div>
+          <div><p class="eyebrow">Локальный стенд v0.7</p><h1>Маяк</h1></div>
           <div class="inbox-actions">
             <button class="mini-profile-button" id="inboxProfileButton" type="button" aria-label="Профиль">??</button>
             <button class="icon-button compose-button" aria-label="Новый диалог"><svg><use href="#i-edit"/></svg></button>
@@ -270,6 +270,18 @@
             <img id="connectQr" alt="QR-код для подключения телефона" />
           </div>
         </div>
+        <div class="room-presence-card">
+          <div class="room-presence-head">
+            <div>
+              <strong>Сейчас в комнате</strong>
+              <p id="connectParticipantsCount">Ждём подключение устройств</p>
+            </div>
+            <span class="presence-pill" id="presencePill">0 онлайн</span>
+          </div>
+          <div class="participant-list" id="connectParticipants">
+            <div class="participant-empty">Когда телефон или второй компьютер откроет эту ссылку, он появится здесь.</div>
+          </div>
+        </div>
       </section>
     </div>
 
@@ -302,6 +314,6 @@
     </div>
 
     <div class="toast" id="toast" role="status"></div>
-    <script src="app.js?v=9" defer></script>
+    <script src="app.js?v=11" defer></script>
   </body>
 </html>

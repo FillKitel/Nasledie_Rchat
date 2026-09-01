@@ -13,7 +13,7 @@ const dataFile = path.join(dataDir, "messages.json");
 
 const host = process.env.HOST || "0.0.0.0";
 const port = Number(process.env.PORT || 4173);
-const clients = new Set();
+const clients = new Map();
 const QR_VERSION = 3;
 const QR_SIZE = 17 + QR_VERSION * 4;
 const QR_DATA_CODEWORDS = 55;
@@ -93,9 +93,74 @@ function pushSse(res, event, payload) {
 }
 
 function broadcast(event, payload) {
-  for (const res of clients) {
+  for (const res of clients.keys()) {
     pushSse(res, event, payload);
   }
+}
+
+function safeText(value, fallback = "", limit = 80) {
+  const text = String(value || fallback).trim();
+  return text.slice(0, limit);
+}
+
+function participantFromUrl(url) {
+  const now = new Date().toISOString();
+  const clientId = safeText(url.searchParams.get("clientId"), crypto.randomUUID(), 120);
+  const deviceId = safeText(url.searchParams.get("deviceId"), clientId, 120);
+  const profileId = safeText(url.searchParams.get("profileId"), "", 120);
+  const name = safeText(url.searchParams.get("name"), "Локальное устройство", 80);
+  const handle = safeText(url.searchParams.get("handle"), "", 80);
+  const deviceName = safeText(url.searchParams.get("deviceName"), "Устройство Маяка", 80);
+
+  return {
+    sessionId: crypto.randomUUID(),
+    clientId,
+    deviceId,
+    profileId,
+    name,
+    handle,
+    deviceName,
+    connectedAt: now,
+    lastSeenAt: now
+  };
+}
+
+function participantList() {
+  const grouped = new Map();
+  for (const participant of clients.values()) {
+    const key = participant.deviceId || participant.clientId || participant.sessionId;
+    const existing = grouped.get(key);
+    if (!existing) {
+      grouped.set(key, {
+        id: key,
+        profileId: participant.profileId,
+        name: participant.name,
+        handle: participant.handle,
+        deviceName: participant.deviceName,
+        connectedAt: participant.connectedAt,
+        lastSeenAt: participant.lastSeenAt,
+        connections: 1
+      });
+      continue;
+    }
+    existing.connections += 1;
+    if (participant.lastSeenAt > existing.lastSeenAt) existing.lastSeenAt = participant.lastSeenAt;
+    if (participant.connectedAt < existing.connectedAt) existing.connectedAt = participant.connectedAt;
+  }
+  return [...grouped.values()].sort((a, b) => a.connectedAt.localeCompare(b.connectedAt));
+}
+
+function presencePayload() {
+  const participants = participantList();
+  return {
+    clients: clients.size,
+    devices: participants.length,
+    participants
+  };
+}
+
+function broadcastPresence() {
+  broadcast("presence", presencePayload());
 }
 
 function normalizeMessage(input) {
@@ -172,7 +237,7 @@ function appendBits(bits, value, length) {
 
 function qrDataCodewords(text) {
   const data = Buffer.from(text, "utf8");
-  if (data.length > 53) throw new Error("QR payload is too long for v0.5 demo");
+  if (data.length > 53) throw new Error("QR payload is too long for v0.6 demo");
 
   const bits = [];
   appendBits(bits, 0x4, 4);
@@ -368,8 +433,10 @@ async function handleApi(req, res, url) {
     sendJson(res, 200, {
       ok: true,
       name: "Mayak local realtime",
-      version: "0.5",
+      version: "0.7",
       clients: clients.size,
+      devices: participantList().length,
+      participants: participantList(),
       messages: messages.length
     });
     return;
@@ -393,6 +460,11 @@ async function handleApi(req, res, url) {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/presence") {
+    sendJson(res, 200, presencePayload());
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/events") {
     res.writeHead(200, {
       "content-type": "text/event-stream; charset=utf-8",
@@ -400,16 +472,21 @@ async function handleApi(req, res, url) {
       connection: "keep-alive",
       "access-control-allow-origin": "*"
     });
-    clients.add(res);
-    pushSse(res, "hello", { ok: true, clients: clients.size });
+    const participant = participantFromUrl(url);
+    clients.set(res, participant);
+    pushSse(res, "hello", { ok: true, participant, ...presencePayload() });
     pushSse(res, "snapshot", { messages: messages.filter((message) => message.chatId === "live") });
-    broadcast("presence", { clients: clients.size });
+    broadcastPresence();
 
-    const heartbeat = setInterval(() => pushSse(res, "ping", { at: new Date().toISOString() }), 25000);
+    const heartbeat = setInterval(() => {
+      const record = clients.get(res);
+      if (record) record.lastSeenAt = new Date().toISOString();
+      pushSse(res, "ping", { at: new Date().toISOString() });
+    }, 25000);
     req.on("close", () => {
       clearInterval(heartbeat);
       clients.delete(res);
-      broadcast("presence", { clients: clients.size });
+      broadcastPresence();
     });
     return;
   }

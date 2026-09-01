@@ -609,6 +609,102 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-lineca
 .connect-modal-card .connect-card-copy > span { font-size: 12px; line-height: 1.48; }
 .connect-modal-card .connect-card-copy a { font-size: 11px; }
 .connect-modal-card .qr-frame { width: 188px; height: 188px; border-radius: 24px; padding: 12px; }
+.room-presence-card {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 14px;
+  background: color-mix(in srgb, var(--surface-soft) 76%, var(--surface));
+}
+.room-presence-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 11px;
+}
+.room-presence-head strong { display: block; margin-bottom: 4px; font-size: 14px; letter-spacing: -.02em; }
+.room-presence-head p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.presence-pill {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: color-mix(in srgb, #43c791 16%, var(--surface));
+  color: #43c791;
+  font-size: 10px;
+  font-weight: 850;
+}
+.participant-list { display: grid; gap: 8px; }
+.participant-item {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  border-radius: 15px;
+  padding: 9px;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+}
+.participant-avatar {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #8997ff, #5266e8);
+  color: white;
+  font-size: 12px;
+  font-weight: 850;
+}
+.participant-copy { min-width: 0; }
+.participant-copy strong { display: block; overflow: hidden; margin-bottom: 3px; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.participant-copy p { margin: 0; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.participant-side {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.participant-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.participant-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #43c791;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #43c791 14%, transparent);
+}
+.participant-action {
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 850;
+  cursor: pointer;
+}
+.participant-action:disabled {
+  cursor: default;
+  background: color-mix(in srgb, var(--muted) 12%, var(--surface));
+  color: var(--muted);
+}
+.participant-empty {
+  border: 1px dashed var(--line);
+  border-radius: 15px;
+  padding: 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: center;
+}
 .profile-modal-card { width: min(520px, 100%); }
 .profile-modal-backdrop[data-required="true"] #profileCloseButton,
 .profile-modal-backdrop[data-required="true"] #profileCancelButton { display: none; }
@@ -728,6 +824,9 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-lineca
   .prototype-card, .live-status-card { margin-inline: 16px; }
   .connect-modal-grid { grid-template-columns: 1fr; }
   .connect-modal-card .qr-frame { width: 168px; height: 168px; justify-self: center; }
+  .room-presence-head { align-items: flex-start; }
+  .participant-item { grid-template-columns: 38px minmax(0, 1fr); }
+  .participant-side { grid-column: 2; align-items: flex-start; }
   .local-room-button { padding-inline: 10px; }
   .local-room-button span { display: none; }
   .chat-list, .side-panel { padding-inline: 7px; padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
