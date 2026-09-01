@@ -9,7 +9,7 @@
     <title>Маяк — мессенджер</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=3" />
+    <link rel="stylesheet" href="styles.css?v=11" />
   </head>
   <body>
     <svg class="svg-sprite" aria-hidden="true">
@@ -47,14 +47,17 @@
         </div>
         <div class="rail-bottom">
           <button class="rail-button theme-toggle" aria-label="Сменить тему"><svg class="moon"><use href="#i-moon"/></svg><svg class="sun"><use href="#i-sun"/></svg></button>
-          <button class="avatar avatar-me" aria-label="Профиль">АР</button>
+          <button class="avatar avatar-me" id="profileButton" type="button" aria-label="Профиль">??</button>
         </div>
       </nav>
 
       <section class="inbox" aria-label="Диалоги">
         <header class="inbox-header">
-          <div><p class="eyebrow">Локальный стенд v0.2</p><h1>Маяк</h1></div>
-          <button class="icon-button compose-button" aria-label="Новый диалог"><svg><use href="#i-edit"/></svg></button>
+          <div><p class="eyebrow">Локальный стенд v0.7</p><h1>Маяк</h1></div>
+          <div class="inbox-actions">
+            <button class="mini-profile-button" id="inboxProfileButton" type="button" aria-label="Профиль">??</button>
+            <button class="icon-button compose-button" aria-label="Новый диалог"><svg><use href="#i-edit"/></svg></button>
+          </div>
         </header>
         <label class="search-field">
           <svg><use href="#i-search"/></svg>
@@ -65,15 +68,24 @@
           <button class="filter active" data-filter="all">Все <span id="allCount">6</span></button>
           <button class="filter" data-filter="unread">Непрочитанные <span id="unreadCount">3</span></button>
         </div>
-        <div class="prototype-card" id="prototypeCard">
-          <div class="prototype-icon"><svg><use href="#i-cloud"/></svg></div>
-          <div>
-            <strong>Это уже не просто картинка</strong>
-            <p>Можно писать демо-сообщения, создавать локальные чаты, переключать разделы и тему. Flutter-база под iOS/Android/Mac лежит отдельно.</p>
-          </div>
-        </div>
         <div class="panel-stack">
-          <div class="chat-list content-panel active" id="chatList" data-section-panel="chats"></div>
+          <div class="content-panel chats-panel active" data-section-panel="chats">
+            <div class="prototype-card" id="prototypeCard">
+              <div class="prototype-icon"><svg><use href="#i-cloud"/></svg></div>
+              <div>
+                <strong>Теперь есть живой локальный чат</strong>
+                <p>Откройте этот адрес в двух окнах: сообщения в диалоге «Живой чат» прилетают через локальный сервер без перезагрузки.</p>
+              </div>
+            </div>
+            <div class="live-status-card" id="liveStatus">
+              <span class="live-dot checking"></span>
+              <div>
+                <strong id="liveStatusTitle">Проверяю локальный сервер…</strong>
+                <p id="liveStatusText">Если открыт обычный static-прототип, живой чат останется в демо-режиме.</p>
+              </div>
+            </div>
+            <div class="chat-list" id="chatList"></div>
+          </div>
 
           <div class="side-panel content-panel" data-section-panel="calls" aria-label="Звонки">
             <div class="panel-title">
@@ -130,13 +142,14 @@
 
       <section class="conversation" aria-label="Открытый диалог">
         <header class="conversation-header">
-          <button class="icon-button back-button" aria-label="Назад"><svg><use href="#i-back"/></svg></button>
+          <button class="icon-button back-button" aria-label="Вернуться к чатам"><svg><use href="#i-back"/></svg><span class="back-label">Чаты</span></button>
           <div class="avatar" id="headerAvatar">МК</div>
           <button class="person-heading" id="personHeading">
             <strong id="headerName">Марина Котова</strong>
             <span><i class="online-dot"></i><span id="headerStatus">в сети</span></span>
           </button>
           <div class="header-actions">
+            <button class="local-room-button" id="connectRoomButton" type="button" aria-label="Локальная комната" hidden><svg><use href="#i-route"/></svg><span>Локальная комната</span></button>
             <button class="icon-button" aria-label="Аудиозвонок"><svg><use href="#i-phone"/></svg></button>
             <button class="icon-button video-action" aria-label="Видеозвонок"><svg><use href="#i-video"/></svg></button>
             <button class="icon-button info-button" aria-label="Информация"><svg><use href="#i-info"/></svg></button>
@@ -172,8 +185,8 @@
         </div>
         <div class="project-status">
           <strong>Статус прототипа</strong>
-          <p><svg><use href="#i-lock"/></svg> Следующий шаг: аккаунты, сервер и синхронизация.</p>
-          <p><svg><use href="#i-cloud"/></svg> Уже есть: локальный UI + Flutter-основа под устройства.</p>
+          <p><svg><use href="#i-lock"/></svg> Следующий шаг: облачная регистрация, доверенные устройства, шифрование и синхронизация.</p>
+          <p><svg><use href="#i-cloud"/></svg> Уже есть: локальный профиль, realtime-сервер, web UI, QR-подключение телефона и Flutter-основа.</p>
           <button id="emergencyButton"><svg><use href="#i-route"/></svg>Аварийная доставка</button>
         </div>
         <div class="details-section">
@@ -237,7 +250,70 @@
       </section>
     </div>
 
+    <div class="modal-backdrop" id="connectModal" hidden>
+      <section class="modal-card connect-modal-card" aria-label="Локальная комната">
+        <div class="modal-head">
+          <div><p class="eyebrow">Локальная комната</p><h2>Подключить телефон</h2></div>
+          <button type="button" class="icon-button" data-connect-close aria-label="Закрыть"><svg><use href="#i-back"/></svg></button>
+        </div>
+        <div class="connect-modal-grid">
+          <div class="connect-card-copy">
+            <strong>QR-код для входа в живой чат</strong>
+            <span>Откройте камеру вашего телефона, наведите на QR-код и запустите «Маяк». Телефон должен быть в той же Wi‑Fi сети.</span>
+            <a id="connectUrl" href="#" target="_blank" rel="noreferrer">адрес появится после подключения</a>
+            <div class="connect-actions">
+              <button type="button" id="copyConnectUrl"><svg><use href="#i-copy"/></svg>Скопировать</button>
+              <button type="button" id="refreshConnectInfo"><svg><use href="#i-route"/></svg>Обновить QR</button>
+            </div>
+          </div>
+          <div class="qr-frame">
+            <img id="connectQr" alt="QR-код для подключения телефона" />
+          </div>
+        </div>
+        <div class="room-presence-card">
+          <div class="room-presence-head">
+            <div>
+              <strong>Сейчас в комнате</strong>
+              <p id="connectParticipantsCount">Ждём подключение устройств</p>
+            </div>
+            <span class="presence-pill" id="presencePill">0 онлайн</span>
+          </div>
+          <div class="participant-list" id="connectParticipants">
+            <div class="participant-empty">Когда телефон или второй компьютер откроет эту ссылку, он появится здесь.</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="modal-backdrop profile-modal-backdrop" id="profileModal" hidden>
+      <form class="modal-card profile-modal-card" id="profileForm" novalidate>
+        <div class="modal-head">
+          <div><p class="eyebrow" id="profileEyebrow">Первый вход</p><h2 id="profileTitle">Создать профиль</h2></div>
+          <button type="button" class="icon-button" id="profileCloseButton" data-profile-close aria-label="Закрыть"><svg><use href="#i-back"/></svg></button>
+        </div>
+        <div class="profile-hero">
+          <div class="avatar profile-preview-avatar" id="profilePreviewAvatar">??</div>
+          <div>
+            <strong id="profilePreviewName">Локальный профиль</strong>
+            <p id="profilePreviewMeta">Пока без облачного аккаунта: имя хранится только на этом устройстве.</p>
+          </div>
+        </div>
+        <label>Ваше имя<input id="profileName" maxlength="60" autocomplete="name" placeholder="Например: Роман" required /></label>
+        <label>Username<input id="profileHandle" maxlength="40" autocomplete="off" placeholder="@roman" /></label>
+        <label>Название устройства<input id="profileDeviceName" maxlength="60" autocomplete="off" placeholder="Например: Mac Романа" /></label>
+        <div class="device-id-row">
+          <span>ID устройства</span>
+          <code id="profileDeviceId">—</code>
+        </div>
+        <p class="profile-note">Это ещё не облачная регистрация. Сейчас мы создаём локальную личность, чтобы сообщения шли от человека, а не от «Устройства XXXX».</p>
+        <div class="modal-actions">
+          <button type="button" id="profileCancelButton" data-profile-close>Отмена</button>
+          <button type="submit" id="profileSubmitButton"><svg><use href="#i-lock"/></svg>Создать профиль</button>
+        </div>
+      </form>
+    </div>
+
     <div class="toast" id="toast" role="status"></div>
-    <script src="app.js?v=3" defer></script>
+    <script src="app.js?v=11" defer></script>
   </body>
 </html>
