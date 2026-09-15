@@ -201,10 +201,13 @@ function currentDeviceName() {
   return profile?.deviceName || defaultDeviceName();
 }
 
+const hostedPage = location.protocol === "https:" && !["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
 const realtime = {
+  mode: hostedPage ? "cloud" : "local",
+  inviteRequired: false,
   available: false,
   connected: false,
-  requiresAuth: false,
+  requiresAuth: hostedPage,
   authenticated: false,
   serverVersion: "",
   clients: 0,
@@ -227,7 +230,7 @@ function createLiveChat() {
     handle: "localhost realtime",
     bio: "Первый настоящий диалог: сообщения проходят через локальный сервер и появляются во всех открытых окнах.",
     preview: "Откройте два окна и отправьте сообщение",
-    time: "v0.8",
+    time: "v0.9",
     unread: 0,
     verified: true,
     messages: []
@@ -380,7 +383,7 @@ function renderMessages() {
   const emptyText = chat.id === LIVE_CHAT_ID
     ? "Откройте этот же адрес во втором окне и отправьте сообщение. Если сервер запущен, оно появится там автоматически."
     : chat.realtime
-      ? "Это личный локальный чат. Сообщения идут через сервер Маяка, пока устройства в одной сети."
+      ? "Это личный чат. Сообщения идут через сервер Маяка."
     : "Здесь пока нет сообщений.";
   messages.innerHTML = `
     <div class="day-divider">Сегодня</div>
@@ -627,13 +630,15 @@ function applyMessageDeleted({ chatId, messageId }, { localChatId = "", messageI
   if (chat.id === activeChatId) renderMessages();
 }
 
-function applyChatCleared({ chatId }, { localChatId = "" } = {}) {
+function applyChatCleared({ chatId, beforeSequence }, { localChatId = "" } = {}) {
   const chat = chats.find((item) => item.serverChatId === chatId || item.id === chatId || item.id === localChatId);
   if (!chat) return;
-  chat.messages.forEach((message) => {
-    if (message.id) realtime.knownMessageIds.delete(message.id);
+  if (Number.isFinite(beforeSequence)) chat.clearedBeforeSequence = Math.max(chat.clearedBeforeSequence || 0, beforeSequence);
+  chat.messages = chat.messages.filter((message) => {
+    const keep = Number.isFinite(beforeSequence) && message.sequence > chat.clearedBeforeSequence;
+    if (!keep && message.id) realtime.knownMessageIds.delete(message.id);
+    return keep;
   });
-  chat.messages = [];
   updateChatAfterHistoryChange(chat);
   save();
   renderChatList();
@@ -782,7 +787,10 @@ function upsertParticipantChat(participant, conversation) {
 }
 
 function syncServerConversations(serverConversations = []) {
+  const allowed = new Set(serverConversations.map((conversation) => conversation.id));
+  chats = chats.filter((chat) => !chat.realtime || chat.id === LIVE_CHAT_ID || allowed.has(chat.serverChatId || chat.id));
   for (const conversation of serverConversations) {
+    if (conversation.id === LIVE_CHAT_ID) ensureLiveChat().clearedBeforeSequence = conversation.clearedBeforeSequence || 0;
     if (!conversation?.id || conversation.id === LIVE_CHAT_ID || conversation.kind !== "direct") continue;
     const peer = conversation.peer || {};
     const participant = {
@@ -795,13 +803,16 @@ function syncServerConversations(serverConversations = []) {
       deviceName: "Устройство Маяка"
     };
     const chat = upsertParticipantChat(participant, conversation);
-    chat.status = "локальный аккаунт";
+    chat.clearedBeforeSequence = conversation.clearedBeforeSequence || 0;
+    chat.messages = chat.messages.filter((message) => !message.sequence || message.sequence > chat.clearedBeforeSequence);
+    chat.status = "аккаунт Маяка";
     chat.bio = peer.bio || "Личный диалог с серверной проверкой участников.";
     if (conversation.lastMessage) {
       const mapped = mapServerMessage(conversation.lastMessage);
       chat.preview = `${mapped.direction === "out" ? "Вы: " : ""}${mapped.text}`;
       chat.time = mapped.time;
     } else {
+      chat.messages = [];
       chat.preview = realtimeEmptyPreview(chat);
       chat.time = realtime.available ? "online" : "offline";
     }
@@ -927,7 +938,13 @@ async function loadConnectInfo() {
     const connectQr = $("#connectQr");
     connectUrl.href = info.primaryUrl;
     connectUrl.textContent = info.primaryUrl;
-    connectQr.src = `${info.qrSvgUrl}&t=${Date.now()}`;
+    realtime.mode = info.mode || "local";
+    const roomTitle = realtime.mode === "cloud" ? "Участники и приглашение" : "Локальная комната";
+    $("#connectRoomTitle").textContent = roomTitle;
+    $("#connectRoomButton span").textContent = roomTitle;
+    $("#connectRoomButton").setAttribute("aria-label", roomTitle);
+    $("#connectHint").textContent = info.hint;
+    connectQr.src = `${info.qrSvgUrl}${info.qrSvgUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
   } catch {
     setConnectCardUnavailable();
   }
@@ -970,9 +987,10 @@ function formatServerTime(value) {
 }
 
 function mapServerMessage(message) {
-  const direction = message.authorId === currentAuthorId() || message.deviceId === deviceId ? "out" : "in";
+  const direction = message.authorId === currentAuthorId() ? "out" : "in";
   return {
     id: message.id,
+    sequence: message.sequence,
     serverChatId: message.chatId || LIVE_CHAT_ID,
     direction,
     authorName: message.authorName,
@@ -1020,12 +1038,12 @@ function applyServerMessages(serverMessages, { replace = false, chatId = "" } = 
   const touchedChatIds = new Set();
 
   if (replace) {
-    realtime.knownMessageIds = new Set();
     const replacementTargets = new Set(serverMessages.map((message) => message?.chatId || fallbackChatId));
     if (!replacementTargets.size) replacementTargets.add(fallbackChatId);
     replacementTargets.forEach((serverChatId) => {
       const chat = chatForServerMessage(serverChatId);
       if (chat) {
+        for (const message of chat.messages) if (message.id) realtime.knownMessageIds.delete(message.id);
         chat.messages = [];
         touchedChatIds.add(chat.id);
       }
@@ -1034,10 +1052,11 @@ function applyServerMessages(serverMessages, { replace = false, chatId = "" } = 
 
   for (const message of serverMessages) {
     if (!message?.id || realtime.knownMessageIds.has(message.id)) continue;
-    realtime.knownMessageIds.add(message.id);
     const serverChatId = message.chatId || fallbackChatId || LIVE_CHAT_ID;
     const chat = chatForServerMessage(serverChatId, message);
     if (!chat) continue;
+    if (message.sequence <= (chat.clearedBeforeSequence || 0)) continue;
+    realtime.knownMessageIds.add(message.id);
     const mapped = mapServerMessage(message);
     chat.messages.push(mapped);
     chat.preview = `${mapped.direction === "out" ? "Вы: " : ""}${mapped.text}`;
@@ -1064,7 +1083,8 @@ function applyServerMessages(serverMessages, { replace = false, chatId = "" } = 
 
 async function fetchJson(url, options = {}) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options.timeout || 1800);
+  const waitMs = realtime.mode === "cloud" ? Math.max(options.timeout || 0, 20000) : options.timeout || 5000;
+  const timeout = setTimeout(() => controller.abort(), waitMs);
   try {
     const response = await fetch(url, {
       ...options,
@@ -1079,6 +1099,7 @@ async function fetchJson(url, options = {}) {
       const error = new Error(payload.error || `HTTP ${response.status}`);
       error.status = response.status;
       error.code = payload.code || "request_failed";
+      error.retryAfter = Number(response.headers.get("retry-after") || 0);
       throw error;
     }
     return payload;
@@ -1132,6 +1153,7 @@ async function sendRealtimeMessage(text, chat = activeChat()) {
       handleSessionExpired();
       return false;
     }
+    if (error.status && error.status < 500) { showToast(error.message); return false; }
     realtime.available = false;
     realtime.connected = false;
     setLiveStatus("offline", "Сервер потерян", "Сообщение не ушло. Запустите локальный сервер и попробуйте ещё раз.");
@@ -1146,30 +1168,61 @@ function connectEventStream() {
   const params = new URLSearchParams({ clientId: deviceId });
   const source = new EventSource(`/api/events?${params.toString()}`);
   realtime.source = source;
+  let syncing = false;
+  let queued = [];
+  const applyEvent = (callback, payload) => {
+    if (source !== realtime.source) return;
+    if (syncing) queued.push(() => callback(payload));
+    else callback(payload);
+  };
 
-  source.addEventListener("hello", (event) => {
+  source.addEventListener("hello", async (event) => {
+    if (source !== realtime.source) return;
     const data = JSON.parse(event.data);
+    realtime.available = true;
     realtime.connected = true;
     updatePresence(data);
+    syncing = true;
+    try {
+      const { conversations } = await fetchJson("/api/conversations");
+      if (source !== realtime.source) return;
+      syncServerConversations(conversations || []);
+      const targets = [ensureLiveChat()];
+      if (activeChat().realtime && activeChatId !== LIVE_CHAT_ID) targets.push(activeChat());
+      for (const chat of targets) {
+        const chatId = chat.serverChatId || chat.id;
+        const history = await fetchJson(`/api/messages?chatId=${encodeURIComponent(chatId)}`);
+        if (source !== realtime.source) return;
+        applyServerMessages(history.messages || [], { replace: true, chatId });
+      }
+    } catch (error) {
+      if (error.status === 401) { handleSessionExpired(); return; }
+      showToast("Связь восстановлена, но историю пока не удалось обновить. Откройте чат ещё раз.");
+    } finally {
+      syncing = false;
+      if (source === realtime.source) queued.forEach((apply) => apply());
+      queued = [];
+    }
     const onlineDevices = realtime.devices || realtime.clients || 1;
-    setLiveStatus("online", "Локальный сервер подключён", `В комнате ${onlineDevices} ${pluralRu(onlineDevices, "устройство", "устройства", "устройств")}. Сообщения идут в реальном времени.`);
+    setLiveStatus("online", "Сервер подключён", `В комнате ${onlineDevices} ${pluralRu(onlineDevices, "устройство", "устройства", "устройств")}. Сообщения идут в реальном времени.`);
   });
 
   source.addEventListener("snapshot", (event) => {
+    if (syncing || source !== realtime.source) return;
     const data = JSON.parse(event.data);
     applyServerMessages(data.messages || [], { replace: true, chatId: LIVE_CHAT_ID });
   });
 
   source.addEventListener("message", (event) => {
-    applyServerMessages([JSON.parse(event.data)]);
+    applyEvent((message) => applyServerMessages([message]), JSON.parse(event.data));
   });
 
   source.addEventListener("message_deleted", (event) => {
-    applyMessageDeleted(JSON.parse(event.data));
+    applyEvent(applyMessageDeleted, JSON.parse(event.data));
   });
 
   source.addEventListener("chat_cleared", (event) => {
-    applyChatCleared(JSON.parse(event.data));
+    applyEvent(applyChatCleared, JSON.parse(event.data));
   });
 
   source.addEventListener("presence", (event) => {
@@ -1177,7 +1230,7 @@ function connectEventStream() {
     updatePresence(data);
     if (realtime.available) {
       const onlineDevices = realtime.devices || realtime.clients || 1;
-      setLiveStatus("online", "Локальный сервер подключён", `В комнате ${onlineDevices} ${pluralRu(onlineDevices, "устройство", "устройства", "устройств")}. Сообщения идут в реальном времени.`);
+      setLiveStatus("online", "Сервер подключён", `В комнате ${onlineDevices} ${pluralRu(onlineDevices, "устройство", "устройства", "устройств")}. Сообщения идут в реальном времени.`);
     }
   });
 
@@ -1186,10 +1239,27 @@ function connectEventStream() {
     if (realtime.available) {
       setLiveStatus("checking", "Переподключаюсь…", "Поток сообщений временно оборвался, браузер пробует восстановить связь.");
     }
+    fetchJson("/api/auth/me").catch((error) => {
+      if (source === realtime.source && error.status === 401) handleSessionExpired();
+    });
   };
 }
 
+function clearAccountChatCache() {
+  chats = chats.filter((chat) => !chat.realtime || chat.id === LIVE_CHAT_ID);
+  const live = ensureLiveChat();
+  live.messages = [];
+  live.clearedBeforeSequence = 0;
+  live.preview = "Войдите, чтобы загрузить историю";
+  realtime.knownMessageIds.clear();
+  if (!chats.some((chat) => chat.id === activeChatId)) activeChatId = LIVE_CHAT_ID;
+  save();
+  renderChatList();
+  renderMessages();
+}
+
 function applyAuthenticatedSession({ user, session }) {
+  if (profile?.id !== user.id) clearAccountChatCache();
   const now = new Date().toISOString();
   profile = {
     id: user.id,
@@ -1229,12 +1299,15 @@ async function startAuthenticatedRealtime() {
 }
 
 async function initRealtime() {
-  setLiveStatus("checking", "Проверяю локальный сервер…", "Живой чат включится, если страница открыта через сервер v0.8.");
+  setLiveStatus("checking", "Подключаюсь к серверу…", "Бесплатный сервер после простоя может запускаться около минуты. Подождите немного.");
   try {
-    const health = await fetchJson("/api/health", { timeout: 1600 });
+    const health = await fetchJson("/api/health", { timeout: hostedPage ? 75000 : 5000 });
     realtime.available = Boolean(health.ok);
     realtime.requiresAuth = health.auth === "sessions";
     realtime.serverVersion = health.version || "";
+    realtime.mode = health.mode || "local";
+    $("#serverModeLabel").textContent = `${realtime.mode === "cloud" ? "Интернет-пилот" : "Локальный сервер"} v${realtime.serverVersion}`;
+    realtime.inviteRequired = Boolean(health.inviteRequired);
     updatePresence(health);
     await loadConnectInfo();
 
@@ -1246,7 +1319,7 @@ async function initRealtime() {
       } catch (error) {
         if (error.status !== 401) throw error;
         realtime.authenticated = false;
-        setLiveStatus("checking", "Сервер v0.8 готов", "Создайте аккаунт или войдите — после этого откроется живая локальная комната.");
+        setLiveStatus("checking", "Сервер готов", "Создайте аккаунт или войдите — после этого откроется живая комната.");
         authMode = profile ? "login" : "register";
         openProfileModal({ required: true });
       }
@@ -1260,6 +1333,12 @@ async function initRealtime() {
   } catch (error) {
     realtime.available = false;
     realtime.connected = false;
+    if (hostedPage) {
+      realtime.requiresAuth = true;
+      setLiveStatus("offline", "Не удалось подключиться", "Проверьте интернет. Сервер может запускаться после простоя; попробуем снова через 15 секунд.");
+      setTimeout(initRealtime, 15000);
+      return;
+    }
     realtime.requiresAuth = false;
     setConnectCardUnavailable();
     setLiveStatus("offline", "Живой сервер не запущен", "Запустите ./script/run_local_chat.sh и откройте http://127.0.0.1:4173.");
@@ -1425,7 +1504,7 @@ function showProfileError(message = "") {
 }
 
 function fillProfileForm({ required = false, preserveValues = false } = {}) {
-  const serverAuth = realtime.available && realtime.requiresAuth;
+  const serverAuth = realtime.requiresAuth;
   const editingAccount = serverAuth && realtime.authenticated;
   const loginOnly = serverAuth && !editingAccount && authMode === "login";
   profileHandleTouched = Boolean(profile?.handle);
@@ -1434,6 +1513,7 @@ function fillProfileForm({ required = false, preserveValues = false } = {}) {
   $("#profileNameField").hidden = loginOnly;
   $("#profileCustomizationFields").hidden = loginOnly;
   $("#profilePasswordField").hidden = !serverAuth || editingAccount;
+  $("#profileInviteField").hidden = !serverAuth || editingAccount || loginOnly || !realtime.inviteRequired;
   profilePasswordInput.required = serverAuth && !editingAccount;
   profilePasswordInput.autocomplete = loginOnly ? "current-password" : "new-password";
   profileHandleInput.disabled = editingAccount;
@@ -1453,7 +1533,7 @@ function fillProfileForm({ required = false, preserveValues = false } = {}) {
   }
 
   if (editingAccount) {
-    $("#profileEyebrow").textContent = "Аккаунт v0.8";
+    $("#profileEyebrow").textContent = "Аккаунт v0.9";
     $("#profileTitle").textContent = "Ваш профиль";
     $("#profileSubmitButton").innerHTML = '<svg><use href="#i-lock"/></svg>Сохранить';
     $("#profileNote").textContent = "Имя хранится на сервере, а это устройство использует отдельную защищённую сессию.";
@@ -1466,7 +1546,7 @@ function fillProfileForm({ required = false, preserveValues = false } = {}) {
     $("#profileEyebrow").textContent = "Первый аккаунт";
     $("#profileTitle").textContent = "Создать аккаунт";
     $("#profileSubmitButton").innerHTML = '<svg><use href="#i-lock"/></svg>Зарегистрироваться';
-    $("#profileNote").textContent = "Пароль сохраняется на локальном сервере только как scrypt-хеш. Минимальная длина — 8 символов.";
+    $("#profileNote").textContent = "Пароль сохраняется на сервере только как scrypt-хеш. Минимальная длина — 8 символов.";
   } else {
     $("#profileEyebrow").textContent = profile ? "Локальный профиль" : "Демо-режим";
     $("#profileTitle").textContent = profile ? "Ваш профиль" : "Создать локальный профиль";
@@ -1498,6 +1578,7 @@ function closeProfileModal() {
 }
 
 async function saveProfileFromForm() {
+  if (hostedPage && !realtime.available) { showProfileError("Подождите подключения к серверу и повторите попытку"); return false; }
   const name = profileNameInput.value.trim().replace(/\s+/g, " ").slice(0, 60);
   const bio = profileBioInput.value.trim().slice(0, 280);
   const serverAuth = realtime.available && realtime.requiresAuth;
@@ -1532,13 +1613,15 @@ async function saveProfileFromForm() {
         ? { name, bio, deviceName }
         : loginOnly
           ? { handle, password, deviceId, deviceName }
-          : { name, handle, password, bio, deviceId, deviceName };
+          : { name, handle, password, bio, deviceId, deviceName, inviteCode: $("#profileInvite").value.trim() };
       const auth = await fetchJson(endpoint, {
         method: editingAccount ? "PATCH" : "POST",
         body: JSON.stringify(payload),
         timeout: 7000
       });
       applyAuthenticatedSession(auth);
+      $("#profileInvite").value = "";
+      profilePasswordInput.value = "";
       if (!loginOnly) {
         const avatarResult = await saveServerAvatarDraft();
         if (avatarResult?.user) applyAuthenticatedSession({ user: avatarResult.user, session: auth.session });
@@ -1591,11 +1674,12 @@ async function saveProfileFromForm() {
 async function logoutAccount() {
   try {
     await fetchJson("/api/auth/logout", { method: "POST", body: "{}", timeout: 2500 });
-  } catch {}
+  } catch { showToast("Не удалось завершить сессию на сервере. Проверьте связь и повторите выход."); return; }
   realtime.source?.close();
   realtime.connected = false;
   realtime.authenticated = false;
   profile = null;
+  clearAccountChatCache();
   localStorage.removeItem(PROFILE_KEY);
   renderProfileChrome();
   authMode = "login";

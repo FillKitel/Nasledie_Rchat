@@ -29,3 +29,7 @@ work/
 
 # Local prototype data
 server/.data/
+node_modules/
+.pnpm-store/
+backups/
+*.backup.json

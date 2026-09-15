@@ -9,7 +9,7 @@
     <title>Маяк — мессенджер</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=14" />
+    <link rel="stylesheet" href="styles.css?v=15" />
   </head>
   <body>
     <svg class="svg-sprite" aria-hidden="true">
@@ -54,7 +54,7 @@
 
       <section class="inbox" aria-label="Диалоги">
         <header class="inbox-header">
-          <div><p class="eyebrow">Локальный стенд v0.8</p><h1>Маяк</h1></div>
+          <div><p class="eyebrow" id="serverModeLabel">Тестовая версия v0.9</p><h1>Маяк</h1></div>
           <div class="inbox-actions">
             <button class="mini-profile-button" id="inboxProfileButton" type="button" aria-label="Профиль">??</button>
             <button class="icon-button compose-button" aria-label="Новый диалог"><svg><use href="#i-edit"/></svg></button>
@@ -74,14 +74,14 @@
             <div class="prototype-card" id="prototypeCard">
               <div class="prototype-icon"><svg><use href="#i-cloud"/></svg></div>
               <div>
-                <strong>Аккаунты и сессии уже работают</strong>
-                <p>Зарегистрируйтесь на Mac, войдите с тем же username на телефоне и общайтесь через локальный сервер.</p>
+                <strong>Общайтесь в «Живом чате»</strong>
+                <p>Войдите с тем же аккаунтом на телефоне. Остальные примеры диалогов пока демонстрационные; настоящий личный чат можно открыть из списка участников комнаты.</p>
               </div>
             </div>
             <div class="live-status-card" id="liveStatus">
               <span class="live-dot checking"></span>
               <div>
-                <strong id="liveStatusTitle">Проверяю локальный сервер…</strong>
+                <strong id="liveStatusTitle">Подключаюсь к серверу…</strong>
                 <p id="liveStatusText">Если открыт обычный static-прототип, живой чат останется в демо-режиме.</p>
               </div>
             </div>
@@ -264,13 +264,13 @@
     <div class="modal-backdrop" id="connectModal" hidden>
       <section class="modal-card connect-modal-card" aria-label="Локальная комната">
         <div class="modal-head">
-          <div><p class="eyebrow">Локальная комната</p><h2>Подключить телефон</h2></div>
+          <div><p class="eyebrow" id="connectRoomTitle">Локальная комната</p><h2>Подключить телефон</h2></div>
           <button type="button" class="icon-button" data-connect-close aria-label="Закрыть"><svg><use href="#i-back"/></svg></button>
         </div>
         <div class="connect-modal-grid">
           <div class="connect-card-copy">
             <strong>QR-код для входа в живой чат</strong>
-            <span>Откройте камеру телефона, наведите на QR-код и запустите «Маяк». Войдите в аккаунт; телефон должен быть в той же Wi‑Fi сети.</span>
+            <span id="connectHint">Откройте камеру телефона, наведите на QR-код и запустите «Маяк». Войдите в аккаунт; телефон должен быть в той же Wi‑Fi сети.</span>
             <a id="connectUrl" href="#" target="_blank" rel="noreferrer">адрес появится после подключения</a>
             <div class="connect-actions">
               <button type="button" id="copyConnectUrl"><svg><use href="#i-copy"/></svg>Скопировать</button>
@@ -325,6 +325,7 @@
         <label id="profileNameField">Ваше имя<input id="profileName" maxlength="60" autocomplete="name" placeholder="Например: Роман" required /></label>
         <label>Username<input id="profileHandle" maxlength="40" autocomplete="username" placeholder="@roman" /></label>
         <label id="profilePasswordField" hidden>Пароль<input id="profilePassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Не менее 8 символов" /></label>
+        <label id="profileInviteField" hidden>Код приглашения<input id="profileInvite" type="password" maxlength="128" autocomplete="off" placeholder="Код от организатора тестирования" /></label>
         <label>Название устройства<input id="profileDeviceName" maxlength="60" autocomplete="off" placeholder="Например: Mac Романа" /></label>
         <div class="device-id-row">
           <span>ID устройства</span>
@@ -353,6 +354,6 @@
     </div>
 
     <div class="toast" id="toast" role="status"></div>
-    <script src="app.js?v=14" defer></script>
+    <script src="app.js?v=15" defer></script>
   </body>
 </html>

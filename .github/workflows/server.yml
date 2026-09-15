@@ -1,0 +1,32 @@
+name: Server checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-only-ci-password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npx --yes pnpm@11.19.0 install --frozen-lockfile
+      - run: node --check server/index.js && node --check app/app.js
+      - run: node --no-warnings=ExperimentalWarning --test --test-concurrency=1 server/*.test.js
+        env:
+          TEST_POSTGRES_URL: postgresql://postgres:test-only-ci-password@127.0.0.1:5432/postgres?sslmode=disable

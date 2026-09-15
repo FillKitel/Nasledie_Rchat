@@ -1,0 +1,25 @@
+{
+  "name": "mayak-messenger",
+  "version": "0.9.0",
+  "private": true,
+  "description": "Mayak messenger: local and hosted server",
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "scripts": {
+    "start": "node --no-warnings=ExperimentalWarning server/index.js",
+    "test": "node --no-warnings=ExperimentalWarning --test --test-concurrency=1 server/*.test.js",
+    "check": "node --check server/index.js && node --check app/app.js",
+    "backup": "node --no-warnings=ExperimentalWarning server/backup.js export",
+    "restore": "node --no-warnings=ExperimentalWarning server/backup.js import"
+  },
+  "dependencies": {
+    "pg": "^8.23.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite-socket": "^0.2.11",
+    "prettier": "^3.9.6"
+  }
+}

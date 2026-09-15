@@ -13,7 +13,12 @@ if ! command -v "$NODE_BIN" >/dev/null 2>&1; then
 fi
 
 if ! "$NODE_BIN" -e "require('node:sqlite')" >/dev/null 2>&1; then
-  echo "Для Маяка v0.8 нужен Node.js 22+ со встроенной SQLite. Проверьте NODE_BIN в .env.local." >&2
+  echo "Для Маяка v0.9 нужен Node.js 22.16+ со встроенной SQLite. Проверьте NODE_BIN в .env.local." >&2
+  exit 1
+fi
+
+if ! (cd "$ROOT_DIR" && "$NODE_BIN" -e "require('pg'); require('qrcode')") >/dev/null 2>&1; then
+  echo "Не установлены зависимости. В папке проекта выполните: npx --yes pnpm@11.19.0 install --frozen-lockfile" >&2
   exit 1
 fi
 
