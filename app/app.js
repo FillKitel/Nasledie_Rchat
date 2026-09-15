@@ -168,6 +168,8 @@ function loadProfile() {
       name: name.slice(0, 60),
       handle: normalizeHandle(parsed.handle, name),
       initials: makeInitials(name),
+      bio: String(parsed.bio || "").trim().slice(0, 280),
+      avatarUrl: String(parsed.avatarUrl || ""),
       deviceName: String(parsed.deviceName || defaultDeviceName()).trim().slice(0, 60),
       createdAt: parsed.createdAt || new Date().toISOString(),
       updatedAt: parsed.updatedAt || parsed.createdAt || new Date().toISOString()
@@ -185,6 +187,7 @@ function defaultProfileName() {
 
 const deviceId = getLocalValue(DEVICE_ID_KEY, makeId("device"));
 let profile = loadProfile();
+let authMode = profile ? "login" : "register";
 
 function currentAuthorId() {
   return profile?.id || deviceId;
@@ -201,6 +204,9 @@ function currentDeviceName() {
 const realtime = {
   available: false,
   connected: false,
+  requiresAuth: false,
+  authenticated: false,
+  serverVersion: "",
   clients: 0,
   devices: 0,
   participants: [],
@@ -221,7 +227,7 @@ function createLiveChat() {
     handle: "localhost realtime",
     bio: "Первый настоящий диалог: сообщения проходят через локальный сервер и появляются во всех открытых окнах.",
     preview: "Откройте два окна и отправьте сообщение",
-    time: "v0.7",
+    time: "v0.8",
     unread: 0,
     verified: true,
     messages: []
@@ -273,9 +279,28 @@ const profileModal = $("#profileModal");
 const profileForm = $("#profileForm");
 const profileNameInput = $("#profileName");
 const profileHandleInput = $("#profileHandle");
+const profilePasswordInput = $("#profilePassword");
+const profileBioInput = $("#profileBio");
 const profileDeviceNameInput = $("#profileDeviceName");
+const profileAvatarInput = $("#profileAvatarInput");
+const profileAvatarChoose = $("#profileAvatarChoose");
+const profileAvatarRemove = $("#profileAvatarRemove");
+const profileLogoutButton = $("#profileLogoutButton");
 const profileButtons = [$("#profileButton"), $("#inboxProfileButton")].filter(Boolean);
+const chatActionsButton = $("#chatActionsButton");
+const chatActionsMenu = $("#chatActionsMenu");
+const clearChatButton = $("#clearChatButton");
+const messageActionsMenu = $("#messageActionsMenu");
+const deleteMessageButton = $("#deleteMessageButton");
+const confirmModal = $("#confirmModal");
+const confirmForm = $("#confirmForm");
+const confirmActionButton = $("#confirmActionButton");
 let profileHandleTouched = false;
+let pendingAvatarBlob = null;
+let pendingAvatarPreviewUrl = "";
+let pendingAvatarRemoval = false;
+let pendingMessageTarget = null;
+let pendingConfirmAction = null;
 
 function escapeHtml(value) {
   return String(value)
@@ -284,6 +309,29 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function avatarInnerHtml({ avatarUrl = "", name = "", initials = "" } = {}) {
+  return avatarUrl
+    ? `<img src="${escapeHtml(avatarUrl)}" alt="" />`
+    : escapeHtml(initials || makeInitials(name));
+}
+
+function setAvatar(element, { avatarUrl = "", name = "", initials = "" } = {}) {
+  if (!element) return;
+  element.replaceChildren();
+  if (!avatarUrl) {
+    element.textContent = initials || makeInitials(name);
+    return;
+  }
+  const image = document.createElement("img");
+  image.src = avatarUrl;
+  image.alt = "";
+  image.addEventListener("error", () => {
+    image.remove();
+    element.textContent = initials || makeInitials(name);
+  }, { once: true });
+  element.append(image);
 }
 
 function save() {
@@ -312,7 +360,7 @@ function renderChatList() {
 
   chatList.innerHTML = visible.map((chat) => `
     <button class="chat-item ${chat.id === activeChatId ? "active" : ""}" data-chat-id="${chat.id}">
-      <span class="avatar ${chat.avatar}">${escapeHtml(chat.initials)}</span>
+      <span class="avatar ${chat.avatar}">${avatarInnerHtml(chat)}</span>
       <span class="chat-copy">
         <strong>${escapeHtml(chat.name)} ${chat.verified ? '<span class="verified">✓</span>' : ""}</strong>
         <p>${(chat.preview || "").startsWith("Вы:") ? `<span class="you">Вы:</span>${escapeHtml(chat.preview.slice(3))}` : escapeHtml(chat.preview || "Пока нет сообщений")}</p>
@@ -328,6 +376,7 @@ function renderChatList() {
 
 function renderMessages() {
   const chat = activeChat();
+  closeMessageActions();
   const emptyText = chat.id === LIVE_CHAT_ID
     ? "Откройте этот же адрес во втором окне и отправьте сообщение. Если сервер запущен, оно появится там автоматически."
     : chat.realtime
@@ -338,9 +387,12 @@ function renderMessages() {
     ${chat.messages.length ? chat.messages.map((message, index) => {
       const previous = chat.messages[index - 1];
       const grouped = previous && previous.direction === message.direction;
+      const messageAction = message.direction === "out"
+        ? `<button class="message-action-button" type="button" data-message-action data-message-index="${index}" data-message-id="${escapeHtml(message.id || "")}" aria-label="Действия с сообщением" aria-expanded="false"><svg><use href="#i-more"/></svg></button>`
+        : "";
       return `
         <div class="message ${message.direction} ${grouped ? "grouped" : ""}">
-          <div class="bubble">${message.authorName && message.direction === "in" ? `<strong class="message-author">${escapeHtml(message.authorName)}</strong>` : ""}${escapeHtml(message.text).replaceAll("\n", "<br>")}<span class="message-time">${escapeHtml(message.time)}${message.direction === "out" ? '<span class="checks">✓✓</span>' : ""}</span></div>
+          <div class="message-row">${messageAction}<div class="bubble">${message.authorName && message.direction === "in" ? `<strong class="message-author">${escapeHtml(message.authorName)}</strong>` : ""}${escapeHtml(message.text).replaceAll("\n", "<br>")}<span class="message-time">${escapeHtml(message.time)}${message.direction === "out" ? '<span class="checks">✓✓</span>' : ""}</span></div></div>
           ${message.reaction ? `<button class="reaction" aria-label="Реакция ${escapeHtml(message.reaction)}">${escapeHtml(message.reaction)} <small>${message.reactionCount || 1}</small></button>` : ""}
         </div>
       `;
@@ -355,17 +407,24 @@ function renderMessages() {
     });
   });
 
+  messages.querySelectorAll("[data-message-action]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openMessageActions(button);
+    });
+  });
+
   requestAnimationFrame(() => { messageArea.scrollTop = messageArea.scrollHeight; });
 }
 
 function updateHeader() {
   const chat = activeChat();
-  $("#headerAvatar").textContent = chat.initials;
   $("#headerAvatar").className = `avatar ${chat.avatar}`;
+  setAvatar($("#headerAvatar"), chat);
   $("#headerName").textContent = chat.name;
   $("#headerStatus").textContent = chat.status;
-  $("#detailsAvatar").textContent = chat.initials;
   $("#detailsAvatar").className = `avatar profile-avatar ${chat.avatar}`;
+  setAvatar($("#detailsAvatar"), chat);
   $("#detailsName").textContent = chat.name;
   $("#detailsHandle").textContent = chat.handle;
   $("#detailsBio").textContent = chat.bio;
@@ -405,6 +464,8 @@ function closeConversationPanel() {
 function openChat(id) {
   const chat = chats.find((item) => item.id === id);
   if (!chat) return;
+  closeChatActions();
+  closeMessageActions();
   activeChatId = id;
   activeSection = "chats";
   chat.unread = 0;
@@ -479,6 +540,168 @@ function showToast(text) {
   toastTimer = setTimeout(() => toast.classList.remove("visible"), 1700);
 }
 
+function closeChatActions() {
+  chatActionsMenu.hidden = true;
+  chatActionsButton.setAttribute("aria-expanded", "false");
+}
+
+function toggleChatActions() {
+  const willOpen = chatActionsMenu.hidden;
+  closeMessageActions();
+  chatActionsMenu.hidden = !willOpen;
+  chatActionsButton.setAttribute("aria-expanded", String(willOpen));
+}
+
+function closeMessageActions() {
+  messageActionsMenu.hidden = true;
+  messages.querySelectorAll('[data-message-action][aria-expanded="true"]').forEach((button) => {
+    button.setAttribute("aria-expanded", "false");
+  });
+}
+
+function openMessageActions(button) {
+  closeMessageActions();
+  closeChatActions();
+  const chat = activeChat();
+  pendingMessageTarget = {
+    localChatId: chat.id,
+    chatId: chat.serverChatId || chat.id,
+    messageId: button.dataset.messageId || "",
+    messageIndex: Number(button.dataset.messageIndex)
+  };
+  button.setAttribute("aria-expanded", "true");
+  messageActionsMenu.hidden = false;
+  const rect = button.getBoundingClientRect();
+  const menuWidth = Math.max(messageActionsMenu.offsetWidth, 190);
+  const menuHeight = Math.max(messageActionsMenu.offsetHeight, 48);
+  const left = Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8));
+  const below = rect.bottom + 6;
+  const top = below + menuHeight <= window.innerHeight - 8
+    ? below
+    : Math.max(8, rect.top - menuHeight - 6);
+  messageActionsMenu.style.left = `${left}px`;
+  messageActionsMenu.style.top = `${top}px`;
+}
+
+function closeConfirmModal() {
+  confirmModal.hidden = true;
+  pendingConfirmAction = null;
+  confirmActionButton.disabled = false;
+}
+
+function openConfirmModal({ title, text, actionLabel, action }) {
+  closeChatActions();
+  closeMessageActions();
+  $("#confirmTitle").textContent = title;
+  $("#confirmText").textContent = text;
+  confirmActionButton.textContent = actionLabel;
+  pendingConfirmAction = action;
+  confirmModal.hidden = false;
+  $("#confirmCancelButton").focus();
+}
+
+function updateChatAfterHistoryChange(chat) {
+  const last = chat.messages.at(-1);
+  if (last) {
+    chat.preview = `${last.direction === "out" ? "Вы: " : ""}${last.text}`;
+    chat.time = last.time;
+  } else {
+    chat.preview = chat.realtime ? realtimeEmptyPreview(chat) : "Пока нет сообщений";
+    chat.time = chat.realtime && realtime.available ? "online" : "";
+  }
+  chat.unread = 0;
+}
+
+function applyMessageDeleted({ chatId, messageId }, { localChatId = "", messageIndex = -1 } = {}) {
+  const chat = chats.find((item) => item.serverChatId === chatId || item.id === chatId || item.id === localChatId);
+  if (!chat) return;
+  if (messageId) {
+    chat.messages = chat.messages.filter((message) => message.id !== messageId);
+    realtime.knownMessageIds.delete(messageId);
+  } else if (messageIndex >= 0 && messageIndex < chat.messages.length) {
+    chat.messages.splice(messageIndex, 1);
+  }
+  updateChatAfterHistoryChange(chat);
+  save();
+  renderChatList();
+  if (chat.id === activeChatId) renderMessages();
+}
+
+function applyChatCleared({ chatId }, { localChatId = "" } = {}) {
+  const chat = chats.find((item) => item.serverChatId === chatId || item.id === chatId || item.id === localChatId);
+  if (!chat) return;
+  chat.messages.forEach((message) => {
+    if (message.id) realtime.knownMessageIds.delete(message.id);
+  });
+  chat.messages = [];
+  updateChatAfterHistoryChange(chat);
+  save();
+  renderChatList();
+  if (chat.id === activeChatId) renderMessages();
+}
+
+async function deleteSelectedMessage(target) {
+  const chat = chats.find((item) => item.id === target.localChatId);
+  if (!chat) return;
+  if (chat.realtime) {
+    if (!target.messageId) throw new Error("Сообщение ещё не синхронизировано");
+    const { deleted } = await fetchJson(`/api/messages/${encodeURIComponent(target.messageId)}`, {
+      method: "DELETE",
+      timeout: 3000
+    });
+    applyMessageDeleted(deleted);
+  } else {
+    applyMessageDeleted({ chatId: chat.id, messageId: "" }, target);
+  }
+  showToast("Сообщение удалено");
+}
+
+function confirmMessageDeletion(target) {
+  const chat = chats.find((item) => item.id === target.localChatId);
+  if (!chat) return;
+  openConfirmModal({
+    title: "Удалить сообщение?",
+    text: chat.realtime
+      ? "Сообщение исчезнет у всех участников этого диалога."
+      : "Сообщение исчезнет из этого локального демо-чата.",
+    actionLabel: "Удалить",
+    action: () => deleteSelectedMessage(target)
+  });
+}
+
+async function clearSelectedChat(target) {
+  const chat = chats.find((item) => item.id === target.localChatId);
+  if (!chat) return;
+  if (chat.realtime) {
+    const { cleared } = await fetchJson(`/api/conversations/${encodeURIComponent(target.chatId)}/messages`, {
+      method: "DELETE",
+      timeout: 3000
+    });
+    applyChatCleared(cleared, target);
+  } else {
+    applyChatCleared({ chatId: chat.id }, target);
+  }
+  showToast("История чата очищена");
+}
+
+function confirmChatClear() {
+  const chat = activeChat();
+  if (!chat.messages.length) {
+    closeChatActions();
+    showToast("В этом чате пока нечего очищать");
+    return;
+  }
+  const target = { localChatId: chat.id, chatId: chat.serverChatId || chat.id };
+  openConfirmModal({
+    title: "Очистить историю?",
+    text: chat.realtime
+      ? "Сообщения исчезнут на всех ваших устройствах. У остальных участников история сохранится."
+      : "Все сообщения в этом локальном демо-чате будут удалены.",
+    actionLabel: "Очистить",
+    action: () => clearSelectedChat(target)
+  });
+}
+
 function pluralRu(number, one, few, many) {
   const mod10 = number % 10;
   const mod100 = number % 100;
@@ -493,12 +716,6 @@ function participantLabel(participant) {
   return `${device} · ${handle}`;
 }
 
-function safeChatKey(value) {
-  const text = String(value || "unknown");
-  const bytes = new TextEncoder().encode(text);
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 96) || "unknown";
-}
-
 function participantPeerId(participant) {
   return participant?.profileId || participant?.id || "";
 }
@@ -508,20 +725,17 @@ function isOwnParticipant(participant) {
   return peerId === currentAuthorId() || participant?.id === deviceId;
 }
 
-function dmServerChatId(participant) {
-  const peerId = participantPeerId(participant);
-  const pair = [currentAuthorId(), peerId].sort().map(safeChatKey).join("-");
-  return `dm-${pair}`;
-}
-
 function participantById(id) {
   return realtime.participants.find((participant) => participant.id === id);
 }
 
-function upsertParticipantChat(participant) {
-  const serverChatId = dmServerChatId(participant);
-  const name = participant.name || "Локальный контакт";
-  const handle = participant.handle || "локальная сеть";
+function upsertParticipantChat(participant, conversation) {
+  const serverChatId = conversation.id;
+  const peer = conversation.peer || {};
+  const name = peer.name || participant.name || "Локальный контакт";
+  const handle = peer.handle || participant.handle || "локальная сеть";
+  const bio = peer.bio || participant.bio || "";
+  const avatarUrl = peer.avatarUrl || participant.avatarUrl || "";
   const device = participant.deviceName || "устройство Маяка";
   let chat = chats.find((item) => item.serverChatId === serverChatId || item.id === serverChatId);
 
@@ -533,9 +747,10 @@ function upsertParticipantChat(participant) {
       name,
       initials: makeInitials(name),
       avatar: "logo-avatar",
+      avatarUrl,
       status: "локальная сеть · онлайн",
       handle,
-      bio: `Личный чат с ${device}. Работает через локальный сервер, пока устройства видят одну сеть.`,
+      bio: bio || `Личный чат с ${device}. Работает через локальный сервер, пока устройства видят одну сеть.`,
       preview: "Личный чат готов — напишите первое сообщение",
       time: "online",
       unread: 0,
@@ -552,9 +767,10 @@ function upsertParticipantChat(participant) {
   chat.realtime = true;
   chat.name = name;
   chat.initials = makeInitials(name);
+  chat.avatarUrl = avatarUrl;
   chat.status = "локальная сеть · онлайн";
   chat.handle = handle;
-  chat.bio = `Личный чат с ${device}. Работает через локальный сервер, пока устройства видят одну сеть.`;
+  chat.bio = bio || `Личный чат с ${device}. Работает через локальный сервер, пока устройства видят одну сеть.`;
   chat.peer = {
     id: participant.id,
     profileId: participant.profileId,
@@ -565,19 +781,57 @@ function upsertParticipantChat(participant) {
   return chat;
 }
 
-function openParticipantChat(participantId) {
+function syncServerConversations(serverConversations = []) {
+  for (const conversation of serverConversations) {
+    if (!conversation?.id || conversation.id === LIVE_CHAT_ID || conversation.kind !== "direct") continue;
+    const peer = conversation.peer || {};
+    const participant = {
+      id: peer.id || conversation.id,
+      profileId: peer.id,
+      name: peer.name || "Локальный контакт",
+      handle: peer.handle || "локальный аккаунт",
+      bio: peer.bio || "",
+      avatarUrl: peer.avatarUrl || "",
+      deviceName: "Устройство Маяка"
+    };
+    const chat = upsertParticipantChat(participant, conversation);
+    chat.status = "локальный аккаунт";
+    chat.bio = peer.bio || "Личный диалог с серверной проверкой участников.";
+    if (conversation.lastMessage) {
+      const mapped = mapServerMessage(conversation.lastMessage);
+      chat.preview = `${mapped.direction === "out" ? "Вы: " : ""}${mapped.text}`;
+      chat.time = mapped.time;
+    } else {
+      chat.preview = realtimeEmptyPreview(chat);
+      chat.time = realtime.available ? "online" : "offline";
+    }
+  }
+  save();
+  renderChatList();
+}
+
+async function openParticipantChat(participantId) {
   const participant = participantById(participantId);
   if (!participant) return showToast("Устройство уже отключилось");
   if (isOwnParticipant(participant)) return showToast("Это ваше устройство");
-  if (!profile) {
+  if (!realtime.authenticated) {
     openProfileModal({ required: true });
-    return showToast("Сначала создайте локальный профиль");
+    return showToast("Сначала войдите в аккаунт");
   }
 
-  const chat = upsertParticipantChat(participant);
-  closeConnectModal();
-  openChat(chat.id);
-  showToast(`Открыт личный чат: ${participant.name || "локальный контакт"}`);
+  try {
+    const { conversation } = await fetchJson("/api/conversations/direct", {
+      method: "POST",
+      body: JSON.stringify({ peerUserId: participantPeerId(participant) }),
+      timeout: 3000
+    });
+    const chat = upsertParticipantChat(participant, conversation);
+    closeConnectModal();
+    openChat(chat.id);
+    showToast(`Открыт личный чат: ${participant.name || "локальный контакт"}`);
+  } catch (error) {
+    showToast(error.message || "Не удалось создать личный чат");
+  }
 }
 
 function renderParticipants() {
@@ -605,7 +859,7 @@ function renderParticipants() {
     const isSelf = isOwnParticipant(participant);
     return `
       <div class="participant-item">
-        <span class="participant-avatar">${escapeHtml(makeInitials(name))}</span>
+        <span class="participant-avatar">${avatarInnerHtml({ name, avatarUrl: participant.avatarUrl })}</span>
         <span class="participant-copy">
           <strong>${escapeHtml(name)}</strong>
           <p>${escapeHtml(participantLabel(participant))}${escapeHtml(connections)}</p>
@@ -820,8 +1074,14 @@ async function fetchJson(url, options = {}) {
         ...(options.headers || {})
       }
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response.json();
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(payload.error || `HTTP ${response.status}`);
+      error.status = response.status;
+      error.code = payload.code || "request_failed";
+      throw error;
+    }
+    return payload;
   } finally {
     clearTimeout(timeout);
   }
@@ -840,9 +1100,14 @@ async function loadServerChatHistory(chat) {
 }
 
 async function sendRealtimeMessage(text, chat = activeChat()) {
+  if (realtime.requiresAuth && !realtime.authenticated) {
+    openProfileModal({ required: true });
+    showToast("Сначала войдите в аккаунт");
+    return false;
+  }
   if (!profile) {
     openProfileModal({ required: true });
-    showToast("Сначала создайте локальный профиль");
+    showToast("Сначала создайте профиль");
     return false;
   }
 
@@ -856,18 +1121,17 @@ async function sendRealtimeMessage(text, chat = activeChat()) {
       method: "POST",
       body: JSON.stringify({
         chatId: chat.serverChatId || chat.id || LIVE_CHAT_ID,
-        text,
-        authorId: currentAuthorId(),
-        authorName: currentAuthorName(),
-        authorHandle: profile.handle,
-        deviceId,
-        deviceName: currentDeviceName()
+        text
       }),
       timeout: 3500
     });
     applyServerMessages([message]);
     return true;
-  } catch {
+  } catch (error) {
+    if (error.status === 401) {
+      handleSessionExpired();
+      return false;
+    }
     realtime.available = false;
     realtime.connected = false;
     setLiveStatus("offline", "Сервер потерян", "Сообщение не ушло. Запустите локальный сервер и попробуйте ещё раз.");
@@ -878,14 +1142,8 @@ async function sendRealtimeMessage(text, chat = activeChat()) {
 
 function connectEventStream() {
   realtime.source?.close();
-  const params = new URLSearchParams({
-    clientId: deviceId,
-    deviceId,
-    profileId: currentAuthorId(),
-    name: currentAuthorName(),
-    handle: profile?.handle || "",
-    deviceName: currentDeviceName()
-  });
+  if (realtime.requiresAuth && !realtime.authenticated) return;
+  const params = new URLSearchParams({ clientId: deviceId });
   const source = new EventSource(`/api/events?${params.toString()}`);
   realtime.source = source;
 
@@ -906,6 +1164,14 @@ function connectEventStream() {
     applyServerMessages([JSON.parse(event.data)]);
   });
 
+  source.addEventListener("message_deleted", (event) => {
+    applyMessageDeleted(JSON.parse(event.data));
+  });
+
+  source.addEventListener("chat_cleared", (event) => {
+    applyChatCleared(JSON.parse(event.data));
+  });
+
   source.addEventListener("presence", (event) => {
     const data = JSON.parse(event.data);
     updatePresence(data);
@@ -923,21 +1189,81 @@ function connectEventStream() {
   };
 }
 
+function applyAuthenticatedSession({ user, session }) {
+  const now = new Date().toISOString();
+  profile = {
+    id: user.id,
+    name: user.name,
+    handle: user.handle,
+    initials: makeInitials(user.name),
+    bio: String(user.bio || "").slice(0, 280),
+    avatarUrl: String(user.avatarUrl || ""),
+    deviceName: session.deviceName || defaultDeviceName(),
+    createdAt: user.createdAt || now,
+    updatedAt: user.updatedAt || now,
+    serverAccount: true
+  };
+  realtime.authenticated = true;
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  localStorage.setItem(CLIENT_NAME_KEY, profile.name);
+  renderProfileChrome();
+  updateHeader();
+  renderMessages();
+}
+
+function handleSessionExpired() {
+  realtime.authenticated = false;
+  realtime.connected = false;
+  realtime.source?.close();
+  setLiveStatus("checking", "Нужно войти в аккаунт", "Сессия устройства завершилась. Войдите снова, чтобы продолжить обмен сообщениями.");
+  authMode = "login";
+  openProfileModal({ required: true });
+}
+
+async function startAuthenticatedRealtime() {
+  const { conversations } = await fetchJson("/api/conversations", { timeout: 2200 });
+  syncServerConversations(conversations || []);
+  const snapshot = await fetchJson(`/api/messages?chatId=${LIVE_CHAT_ID}`, { timeout: 2200 });
+  applyServerMessages(snapshot.messages || [], { replace: true, chatId: LIVE_CHAT_ID });
+  connectEventStream();
+}
+
 async function initRealtime() {
-  setLiveStatus("checking", "Проверяю локальный сервер…", "Живой чат включится, если страница открыта через сервер v0.7.");
+  setLiveStatus("checking", "Проверяю локальный сервер…", "Живой чат включится, если страница открыта через сервер v0.8.");
   try {
     const health = await fetchJson("/api/health", { timeout: 1600 });
     realtime.available = Boolean(health.ok);
+    realtime.requiresAuth = health.auth === "sessions";
+    realtime.serverVersion = health.version || "";
     updatePresence(health);
     await loadConnectInfo();
+
+    if (realtime.requiresAuth) {
+      try {
+        const auth = await fetchJson("/api/auth/me", { timeout: 1800 });
+        applyAuthenticatedSession(auth);
+        await startAuthenticatedRealtime();
+      } catch (error) {
+        if (error.status !== 401) throw error;
+        realtime.authenticated = false;
+        setLiveStatus("checking", "Сервер v0.8 готов", "Создайте аккаунт или войдите — после этого откроется живая локальная комната.");
+        authMode = profile ? "login" : "register";
+        openProfileModal({ required: true });
+      }
+      return;
+    }
+
     const snapshot = await fetchJson(`/api/messages?chatId=${LIVE_CHAT_ID}`, { timeout: 1600 });
     applyServerMessages(snapshot.messages || [], { replace: true, chatId: LIVE_CHAT_ID });
     connectEventStream();
-  } catch {
+    if (!profile) openProfileModal({ required: true });
+  } catch (error) {
     realtime.available = false;
     realtime.connected = false;
+    realtime.requiresAuth = false;
     setConnectCardUnavailable();
     setLiveStatus("offline", "Живой сервер не запущен", "Запустите ./script/run_local_chat.sh и откройте http://127.0.0.1:4173.");
+    if (!profile) openProfileModal({ required: true });
   }
 }
 
@@ -971,66 +1297,280 @@ function shortDeviceId() {
   return deviceId.replace(/^device-/, "").slice(0, 18);
 }
 
+function clearAvatarDraft() {
+  if (pendingAvatarPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(pendingAvatarPreviewUrl);
+  pendingAvatarBlob = null;
+  pendingAvatarPreviewUrl = "";
+  pendingAvatarRemoval = false;
+  profileAvatarInput.value = "";
+}
+
+function profilePreviewAvatarUrl() {
+  if (pendingAvatarRemoval) return "";
+  return pendingAvatarPreviewUrl || profile?.avatarUrl || "";
+}
+
+function updateBioCount() {
+  $("#profileBioCount").textContent = profileBioInput.value.length;
+}
+
+function fileToImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => resolve({ image, url });
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Не удалось прочитать изображение"));
+    };
+    image.src = url;
+  });
+}
+
+async function resizeAvatar(file) {
+  if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) {
+    throw new Error("Выберите JPEG, PNG или WebP");
+  }
+  if (file.size > 10 * 1024 * 1024) throw new Error("Исходное фото должно быть меньше 10 МБ");
+
+  let source;
+  let release = () => {};
+  if (globalThis.createImageBitmap) {
+    source = await createImageBitmap(file);
+    release = () => source.close();
+  } else {
+    const loaded = await fileToImage(file);
+    source = loaded.image;
+    release = () => URL.revokeObjectURL(loaded.url);
+  }
+
+  try {
+    const width = source.naturalWidth || source.width;
+    const height = source.naturalHeight || source.height;
+    const side = Math.min(width, height);
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 256;
+    const context = canvas.getContext("2d");
+    context.drawImage(source, (width - side) / 2, (height - side) / 2, side, side, 0, 0, 256, 256);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", 0.84));
+    if (!blob) throw new Error("Не удалось подготовить изображение");
+    return blob;
+  } finally {
+    release();
+  }
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Не удалось сохранить изображение"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function saveServerAvatarDraft() {
+  if (!pendingAvatarBlob && !pendingAvatarRemoval) return null;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 7000);
+  try {
+    const response = await fetch("/api/auth/avatar", {
+      method: pendingAvatarRemoval ? "DELETE" : "PUT",
+      headers: pendingAvatarBlob ? { "content-type": pendingAvatarBlob.type || "image/webp" } : {},
+      body: pendingAvatarBlob || undefined,
+      signal: controller.signal
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    return payload;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function updateProfilePreview() {
-  const name = profileNameInput.value.trim() || "Локальный профиль";
+  const loginOnly = realtime.requiresAuth && !realtime.authenticated && authMode === "login";
+  const name = loginOnly
+    ? (profile?.name || "Вход в Маяк")
+    : (profileNameInput.value.trim() || "Аккаунт Маяка");
   const handle = normalizeHandle(profileHandleInput.value, name);
   const deviceName = profileDeviceNameInput.value.trim() || defaultDeviceName();
-  $("#profilePreviewAvatar").textContent = makeInitials(name);
+  setAvatar($("#profilePreviewAvatar"), { name, avatarUrl: profilePreviewAvatarUrl() });
   $("#profilePreviewName").textContent = name;
   $("#profilePreviewMeta").textContent = `${handle} · ${deviceName}`;
+  profileAvatarRemove.hidden = !profilePreviewAvatarUrl();
+  updateBioCount();
 }
 
 function renderProfileChrome() {
   const name = currentAuthorName();
   const initials = makeInitials(name);
-  const label = profile ? `${profile.name} ${profile.handle}` : "Создать профиль";
+  const label = realtime.authenticated
+    ? `${profile.name} ${profile.handle}`
+    : profile
+      ? `${profile.name} · требуется вход`
+      : "Создать аккаунт";
   profileButtons.forEach((button) => {
-    button.textContent = initials;
+    setAvatar(button, { name, initials, avatarUrl: profile?.avatarUrl || "" });
     button.title = label;
     button.setAttribute("aria-label", label);
   });
 }
 
-function fillProfileForm({ required = false } = {}) {
+function showProfileError(message = "") {
+  const error = $("#profileError");
+  error.textContent = message;
+  error.hidden = !message;
+}
+
+function fillProfileForm({ required = false, preserveValues = false } = {}) {
+  const serverAuth = realtime.available && realtime.requiresAuth;
+  const editingAccount = serverAuth && realtime.authenticated;
+  const loginOnly = serverAuth && !editingAccount && authMode === "login";
   profileHandleTouched = Boolean(profile?.handle);
   profileModal.dataset.required = required ? "true" : "false";
-  $("#profileEyebrow").textContent = profile ? "Локальный профиль" : "Первый вход";
-  $("#profileTitle").textContent = profile ? "Ваш профиль" : "Создать профиль";
-  $("#profileSubmitButton").innerHTML = profile
-    ? '<svg><use href="#i-lock"/></svg>Сохранить'
-    : '<svg><use href="#i-lock"/></svg>Создать профиль';
-  profileNameInput.value = profile?.name || defaultProfileName();
-  profileHandleInput.value = profile?.handle || normalizeHandle("", profileNameInput.value);
-  profileDeviceNameInput.value = profile?.deviceName || defaultDeviceName();
+  $("#authTabs").hidden = !serverAuth || editingAccount;
+  $("#profileNameField").hidden = loginOnly;
+  $("#profileCustomizationFields").hidden = loginOnly;
+  $("#profilePasswordField").hidden = !serverAuth || editingAccount;
+  profilePasswordInput.required = serverAuth && !editingAccount;
+  profilePasswordInput.autocomplete = loginOnly ? "current-password" : "new-password";
+  profileHandleInput.disabled = editingAccount;
+  profileLogoutButton.hidden = !editingAccount;
+
+  document.querySelectorAll("[data-auth-mode]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.authMode === authMode);
+  });
+
+  if (!preserveValues) {
+    clearAvatarDraft();
+    profileNameInput.value = profile?.name || defaultProfileName();
+    profileHandleInput.value = profile?.handle || normalizeHandle("", profileNameInput.value);
+    profilePasswordInput.value = "";
+    profileBioInput.value = profile?.bio || "";
+    profileDeviceNameInput.value = profile?.deviceName || defaultDeviceName();
+  }
+
+  if (editingAccount) {
+    $("#profileEyebrow").textContent = "Аккаунт v0.8";
+    $("#profileTitle").textContent = "Ваш профиль";
+    $("#profileSubmitButton").innerHTML = '<svg><use href="#i-lock"/></svg>Сохранить';
+    $("#profileNote").textContent = "Имя хранится на сервере, а это устройство использует отдельную защищённую сессию.";
+  } else if (serverAuth && loginOnly) {
+    $("#profileEyebrow").textContent = "С возвращением";
+    $("#profileTitle").textContent = "Войти в Маяк";
+    $("#profileSubmitButton").innerHTML = '<svg><use href="#i-lock"/></svg>Войти';
+    $("#profileNote").textContent = "Введите тот же username и пароль. Для этого устройства будет создана отдельная сессия.";
+  } else if (serverAuth) {
+    $("#profileEyebrow").textContent = "Первый аккаунт";
+    $("#profileTitle").textContent = "Создать аккаунт";
+    $("#profileSubmitButton").innerHTML = '<svg><use href="#i-lock"/></svg>Зарегистрироваться';
+    $("#profileNote").textContent = "Пароль сохраняется на локальном сервере только как scrypt-хеш. Минимальная длина — 8 символов.";
+  } else {
+    $("#profileEyebrow").textContent = profile ? "Локальный профиль" : "Демо-режим";
+    $("#profileTitle").textContent = profile ? "Ваш профиль" : "Создать локальный профиль";
+    $("#profileSubmitButton").innerHTML = profile
+      ? '<svg><use href="#i-lock"/></svg>Сохранить'
+      : '<svg><use href="#i-lock"/></svg>Создать профиль';
+    $("#profileNote").textContent = "Сервер не запущен, поэтому профиль сохранится только в этом браузере.";
+  }
+
+  showProfileError();
   $("#profileDeviceId").textContent = shortDeviceId();
   updateProfilePreview();
 }
 
 function openProfileModal({ required = false } = {}) {
-  fillProfileForm({ required: required || !profile });
+  const authRequired = realtime.requiresAuth && !realtime.authenticated;
+  fillProfileForm({ required: required || authRequired || !profile });
   profileModal.hidden = false;
-  requestAnimationFrame(() => profileNameInput.focus());
+  requestAnimationFrame(() => {
+    const loginOnly = realtime.requiresAuth && !realtime.authenticated && authMode === "login";
+    (loginOnly ? profileHandleInput : profileNameInput).focus();
+  });
 }
 
 function closeProfileModal() {
-  if (profileModal.dataset.required === "true" && !profile) return;
+  const missingIdentity = realtime.requiresAuth ? !realtime.authenticated : !profile;
+  if (profileModal.dataset.required === "true" && missingIdentity) return;
   profileModal.hidden = true;
 }
 
-function saveProfileFromForm() {
+async function saveProfileFromForm() {
   const name = profileNameInput.value.trim().replace(/\s+/g, " ").slice(0, 60);
-  if (name.length < 2) {
+  const bio = profileBioInput.value.trim().slice(0, 280);
+  const serverAuth = realtime.available && realtime.requiresAuth;
+  const editingAccount = serverAuth && realtime.authenticated;
+  const loginOnly = serverAuth && !editingAccount && authMode === "login";
+  if (!loginOnly && name.length < 2) {
     showToast("Введите имя профиля");
     profileNameInput.focus();
     return false;
   }
 
+  if (serverAuth) {
+    const handle = normalizeHandle(profileHandleInput.value, name);
+    const password = profilePasswordInput.value;
+    const deviceName = (profileDeviceNameInput.value.trim() || defaultDeviceName()).slice(0, 60);
+    if (!editingAccount && password.length < 8) {
+      showProfileError("Пароль должен содержать не менее 8 символов");
+      profilePasswordInput.focus();
+      return false;
+    }
+
+    const submitButton = $("#profileSubmitButton");
+    submitButton.disabled = true;
+    showProfileError();
+    try {
+      const endpoint = editingAccount
+        ? "/api/auth/me"
+        : loginOnly
+          ? "/api/auth/login"
+          : "/api/auth/register";
+      const payload = editingAccount
+        ? { name, bio, deviceName }
+        : loginOnly
+          ? { handle, password, deviceId, deviceName }
+          : { name, handle, password, bio, deviceId, deviceName };
+      const auth = await fetchJson(endpoint, {
+        method: editingAccount ? "PATCH" : "POST",
+        body: JSON.stringify(payload),
+        timeout: 7000
+      });
+      applyAuthenticatedSession(auth);
+      if (!loginOnly) {
+        const avatarResult = await saveServerAvatarDraft();
+        if (avatarResult?.user) applyAuthenticatedSession({ user: avatarResult.user, session: auth.session });
+      }
+      clearAvatarDraft();
+      profileModal.hidden = true;
+      if (!editingAccount) await startAuthenticatedRealtime();
+      else connectEventStream();
+      showToast(editingAccount ? "Профиль сохранён" : loginOnly ? "Вход выполнен" : "Аккаунт создан");
+      return true;
+    } catch (error) {
+      if (realtime.authenticated) fillProfileForm({ preserveValues: true });
+      showProfileError(error.message || "Не удалось сохранить аккаунт");
+      return false;
+    } finally {
+      submitButton.disabled = false;
+    }
+  }
+
   const now = new Date().toISOString();
+  const avatarUrl = pendingAvatarRemoval
+    ? ""
+    : pendingAvatarBlob
+      ? await blobToDataUrl(pendingAvatarBlob)
+      : profile?.avatarUrl || "";
   profile = {
     id: profile?.id || makeId("profile"),
     name,
     handle: normalizeHandle(profileHandleInput.value, name),
     initials: makeInitials(name),
+    bio,
+    avatarUrl,
     deviceName: (profileDeviceNameInput.value.trim() || defaultDeviceName()).slice(0, 60),
     createdAt: profile?.createdAt || now,
     updatedAt: now
@@ -1042,9 +1582,26 @@ function saveProfileFromForm() {
   updateHeader();
   renderMessages();
   if (realtime.available) connectEventStream();
+  clearAvatarDraft();
   profileModal.hidden = true;
   showToast("Профиль сохранён");
   return true;
+}
+
+async function logoutAccount() {
+  try {
+    await fetchJson("/api/auth/logout", { method: "POST", body: "{}", timeout: 2500 });
+  } catch {}
+  realtime.source?.close();
+  realtime.connected = false;
+  realtime.authenticated = false;
+  profile = null;
+  localStorage.removeItem(PROFILE_KEY);
+  renderProfileChrome();
+  authMode = "login";
+  profileModal.hidden = true;
+  setLiveStatus("checking", "Вы вышли из аккаунта", "Войдите снова, чтобы получать и отправлять сообщения.");
+  openProfileModal({ required: true });
 }
 
 function openNewChatModal() {
@@ -1229,6 +1786,13 @@ profileButtons.forEach((button) => {
   button.addEventListener("click", () => openProfileModal({ required: false }));
 });
 
+document.querySelectorAll("[data-auth-mode]").forEach((button) => {
+  button.addEventListener("click", () => {
+    authMode = button.dataset.authMode;
+    fillProfileForm({ required: true, preserveValues: true });
+  });
+});
+
 profileNameInput.addEventListener("input", () => {
   if (!profileHandleTouched) profileHandleInput.value = normalizeHandle("", profileNameInput.value);
   updateProfilePreview();
@@ -1241,6 +1805,40 @@ profileHandleInput.addEventListener("input", () => {
 });
 
 profileDeviceNameInput.addEventListener("input", updateProfilePreview);
+profileBioInput.addEventListener("input", updateBioCount);
+
+profileAvatarChoose.addEventListener("click", () => {
+  profileAvatarInput.value = "";
+  profileAvatarInput.click();
+});
+
+profileAvatarInput.addEventListener("change", async () => {
+  const [file] = profileAvatarInput.files || [];
+  if (!file) return;
+  profileAvatarChoose.disabled = true;
+  showProfileError();
+  try {
+    const resized = await resizeAvatar(file);
+    if (pendingAvatarPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(pendingAvatarPreviewUrl);
+    pendingAvatarBlob = resized;
+    pendingAvatarPreviewUrl = URL.createObjectURL(resized);
+    pendingAvatarRemoval = false;
+    updateProfilePreview();
+  } catch (error) {
+    showProfileError(error.message || "Не удалось подготовить изображение");
+  } finally {
+    profileAvatarChoose.disabled = false;
+  }
+});
+
+profileAvatarRemove.addEventListener("click", () => {
+  if (pendingAvatarPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(pendingAvatarPreviewUrl);
+  pendingAvatarBlob = null;
+  pendingAvatarPreviewUrl = "";
+  pendingAvatarRemoval = Boolean(profile?.avatarUrl);
+  profileAvatarInput.value = "";
+  updateProfilePreview();
+});
 
 document.querySelectorAll("[data-profile-close]").forEach((button) => {
   button.addEventListener("click", closeProfileModal);
@@ -1252,8 +1850,10 @@ profileModal.addEventListener("click", (event) => {
 
 profileForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  saveProfileFromForm();
+  void saveProfileFromForm();
 });
+
+profileLogoutButton.addEventListener("click", () => void logoutAccount());
 
 document.querySelectorAll("[data-section]").forEach((button) => {
   button.addEventListener("click", () => setSection(button.dataset.section));
@@ -1267,7 +1867,40 @@ $(".emoji-button").addEventListener("click", () => {
   messageInput.focus();
   resizeComposer();
 });
-document.querySelectorAll(".header-actions .icon-button, .profile-actions button").forEach((button) => {
+chatActionsButton.addEventListener("click", (event) => {
+  event.stopPropagation();
+  toggleChatActions();
+});
+clearChatButton.addEventListener("click", confirmChatClear);
+deleteMessageButton.addEventListener("click", () => {
+  const target = pendingMessageTarget;
+  closeMessageActions();
+  if (target) confirmMessageDeletion(target);
+});
+$("#confirmCancelButton").addEventListener("click", closeConfirmModal);
+confirmModal.addEventListener("click", (event) => {
+  if (event.target === confirmModal) closeConfirmModal();
+});
+confirmForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const action = pendingConfirmAction;
+  if (!action) return;
+  confirmActionButton.disabled = true;
+  try {
+    await action();
+    closeConfirmModal();
+  } catch (error) {
+    confirmActionButton.disabled = false;
+    showToast(error.message || "Не удалось выполнить действие");
+  }
+});
+document.addEventListener("click", (event) => {
+  if (!chatActionsMenu.hidden && !event.target.closest(".chat-actions-wrap")) closeChatActions();
+  if (!messageActionsMenu.hidden && !event.target.closest("#messageActionsMenu") && !event.target.closest("[data-message-action]")) {
+    closeMessageActions();
+  }
+});
+document.querySelectorAll(".header-actions .icon-button:not(#chatActionsButton), .profile-actions button").forEach((button) => {
   button.addEventListener("click", () => showToast("Этот раздел скоро появится"));
 });
 document.querySelectorAll("[data-demo-toast]").forEach((button) => {
@@ -1356,6 +1989,11 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !offlineModal.hidden) closeOfflineModal();
   if (event.key === "Escape" && !connectModal.hidden) closeConnectModal();
   if (event.key === "Escape" && !profileModal.hidden) closeProfileModal();
+  if (event.key === "Escape" && !confirmModal.hidden) closeConfirmModal();
+  if (event.key === "Escape") {
+    closeChatActions();
+    closeMessageActions();
+  }
 });
 
 window.addEventListener("popstate", (event) => {
@@ -1379,7 +2017,6 @@ renderChatList();
 updateHeader();
 renderMessages();
 initRealtime();
-if (!profile) requestAnimationFrame(() => openProfileModal({ required: true }));
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("./sw.js").catch(() => {});

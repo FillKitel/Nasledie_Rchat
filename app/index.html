@@ -9,7 +9,7 @@
     <title>Маяк — мессенджер</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=11" />
+    <link rel="stylesheet" href="styles.css?v=14" />
   </head>
   <body>
     <svg class="svg-sprite" aria-hidden="true">
@@ -35,6 +35,7 @@
       <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
       <symbol id="i-route" viewBox="0 0 24 24"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M7.5 6H12a4 4 0 0 1 0 8H10a4 4 0 0 0 0 8h6.5"/></symbol>
       <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></symbol>
     </svg>
 
     <main class="app-shell" id="appShell">
@@ -53,7 +54,7 @@
 
       <section class="inbox" aria-label="Диалоги">
         <header class="inbox-header">
-          <div><p class="eyebrow">Локальный стенд v0.7</p><h1>Маяк</h1></div>
+          <div><p class="eyebrow">Локальный стенд v0.8</p><h1>Маяк</h1></div>
           <div class="inbox-actions">
             <button class="mini-profile-button" id="inboxProfileButton" type="button" aria-label="Профиль">??</button>
             <button class="icon-button compose-button" aria-label="Новый диалог"><svg><use href="#i-edit"/></svg></button>
@@ -73,8 +74,8 @@
             <div class="prototype-card" id="prototypeCard">
               <div class="prototype-icon"><svg><use href="#i-cloud"/></svg></div>
               <div>
-                <strong>Теперь есть живой локальный чат</strong>
-                <p>Откройте этот адрес в двух окнах: сообщения в диалоге «Живой чат» прилетают через локальный сервер без перезагрузки.</p>
+                <strong>Аккаунты и сессии уже работают</strong>
+                <p>Зарегистрируйтесь на Mac, войдите с тем же username на телефоне и общайтесь через локальный сервер.</p>
               </div>
             </div>
             <div class="live-status-card" id="liveStatus">
@@ -153,6 +154,12 @@
             <button class="icon-button" aria-label="Аудиозвонок"><svg><use href="#i-phone"/></svg></button>
             <button class="icon-button video-action" aria-label="Видеозвонок"><svg><use href="#i-video"/></svg></button>
             <button class="icon-button info-button" aria-label="Информация"><svg><use href="#i-info"/></svg></button>
+            <div class="chat-actions-wrap">
+              <button class="icon-button chat-actions-button" id="chatActionsButton" type="button" aria-label="Действия с чатом" aria-expanded="false" aria-controls="chatActionsMenu"><svg><use href="#i-more"/></svg></button>
+              <div class="chat-actions-menu" id="chatActionsMenu" hidden>
+                <button class="danger-menu-action" id="clearChatButton" type="button"><svg><use href="#i-trash"/></svg><span><strong>Очистить чат</strong><small>Только у меня</small></span></button>
+              </div>
+            </div>
           </div>
         </header>
 
@@ -197,6 +204,10 @@
         <div class="shared-media" aria-hidden="true"><span class="media-one"></span><span class="media-two"></span><span class="media-three"></span></div>
       </aside>
     </main>
+
+    <div class="message-actions-menu" id="messageActionsMenu" hidden>
+      <button id="deleteMessageButton" type="button"><svg><use href="#i-trash"/></svg>Удалить сообщение</button>
+    </div>
 
     <div class="modal-backdrop" id="newChatModal" hidden>
       <form class="modal-card" id="newChatForm">
@@ -259,7 +270,7 @@
         <div class="connect-modal-grid">
           <div class="connect-card-copy">
             <strong>QR-код для входа в живой чат</strong>
-            <span>Откройте камеру вашего телефона, наведите на QR-код и запустите «Маяк». Телефон должен быть в той же Wi‑Fi сети.</span>
+            <span>Откройте камеру телефона, наведите на QR-код и запустите «Маяк». Войдите в аккаунт; телефон должен быть в той же Wi‑Fi сети.</span>
             <a id="connectUrl" href="#" target="_blank" rel="noreferrer">адрес появится после подключения</a>
             <div class="connect-actions">
               <button type="button" id="copyConnectUrl"><svg><use href="#i-copy"/></svg>Скопировать</button>
@@ -298,22 +309,50 @@
             <p id="profilePreviewMeta">Пока без облачного аккаунта: имя хранится только на этом устройстве.</p>
           </div>
         </div>
-        <label>Ваше имя<input id="profileName" maxlength="60" autocomplete="name" placeholder="Например: Роман" required /></label>
-        <label>Username<input id="profileHandle" maxlength="40" autocomplete="off" placeholder="@roman" /></label>
+        <div class="auth-tabs" id="authTabs" hidden>
+          <button type="button" class="active" data-auth-mode="register">Регистрация</button>
+          <button type="button" data-auth-mode="login">Вход</button>
+        </div>
+        <div class="profile-customization" id="profileCustomizationFields">
+          <input class="visually-hidden" id="profileAvatarInput" type="file" accept="image/png,image/jpeg,image/webp" />
+          <div class="profile-avatar-actions">
+            <button type="button" id="profileAvatarChoose">Выбрать фото</button>
+            <button type="button" class="profile-avatar-remove" id="profileAvatarRemove" hidden>Удалить</button>
+            <span>Фото будет обрезано до квадрата и уменьшено до 256 × 256.</span>
+          </div>
+          <label>О себе<textarea id="profileBio" rows="3" maxlength="280" placeholder="Пара слов о себе"></textarea><small><span id="profileBioCount">0</span>/280</small></label>
+        </div>
+        <label id="profileNameField">Ваше имя<input id="profileName" maxlength="60" autocomplete="name" placeholder="Например: Роман" required /></label>
+        <label>Username<input id="profileHandle" maxlength="40" autocomplete="username" placeholder="@roman" /></label>
+        <label id="profilePasswordField" hidden>Пароль<input id="profilePassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Не менее 8 символов" /></label>
         <label>Название устройства<input id="profileDeviceName" maxlength="60" autocomplete="off" placeholder="Например: Mac Романа" /></label>
         <div class="device-id-row">
           <span>ID устройства</span>
           <code id="profileDeviceId">—</code>
         </div>
-        <p class="profile-note">Это ещё не облачная регистрация. Сейчас мы создаём локальную личность, чтобы сообщения шли от человека, а не от «Устройства XXXX».</p>
+        <p class="profile-error" id="profileError" role="alert" hidden></p>
+        <p class="profile-note" id="profileNote">Аккаунт хранится на вашем сервере «Маяка», а пароль — только в виде защищённого хеша.</p>
         <div class="modal-actions">
+          <button type="button" class="danger-action" id="profileLogoutButton" hidden>Выйти</button>
           <button type="button" id="profileCancelButton" data-profile-close>Отмена</button>
           <button type="submit" id="profileSubmitButton"><svg><use href="#i-lock"/></svg>Создать профиль</button>
         </div>
       </form>
     </div>
 
+    <div class="modal-backdrop" id="confirmModal" hidden>
+      <form class="modal-card confirm-card" id="confirmForm">
+        <div class="confirm-icon"><svg><use href="#i-trash"/></svg></div>
+        <h2 id="confirmTitle">Подтвердите действие</h2>
+        <p id="confirmText"></p>
+        <div class="modal-actions">
+          <button type="button" id="confirmCancelButton">Отмена</button>
+          <button type="submit" class="confirm-danger" id="confirmActionButton">Удалить</button>
+        </div>
+      </form>
+    </div>
+
     <div class="toast" id="toast" role="status"></div>
-    <script src="app.js?v=11" defer></script>
+    <script src="app.js?v=14" defer></script>
   </body>
 </html>
