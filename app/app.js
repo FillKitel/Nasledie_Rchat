@@ -1,108 +1,3 @@
-const seedChats = [
-  {
-    id: "marina",
-    name: "Марина Котова",
-    initials: "МК",
-    avatar: "orange",
-    status: "в сети",
-    handle: "@marina",
-    bio: "Дизайнер. Люблю хорошую типографику и плохие шутки.",
-    preview: "Тогда берём второй вариант ✨",
-    time: "12:42",
-    unread: 2,
-    messages: [
-      { direction: "in", text: "Привет! Посмотрела наброски нового экрана.", time: "12:35" },
-      { direction: "in", text: "Второй вариант выглядит спокойнее и на телефоне читается лучше.", time: "12:36" },
-      { direction: "out", text: "Согласен. Я ещё немного увеличу отступы и проверю тёмную тему.", time: "12:39" },
-      { direction: "in", text: "Тогда берём второй вариант ✨", time: "12:42", reaction: "👍", reactionCount: 2 }
-    ]
-  },
-  {
-    id: "team",
-    name: "Команда продукта",
-    initials: "КП",
-    avatar: "purple",
-    status: "5 участников",
-    handle: "Закрытая группа",
-    bio: "Обсуждаем продукт, дизайн и ближайшие релизы.",
-    preview: "Илья: созвон перенесли на 16:00",
-    time: "11:18",
-    unread: 5,
-    verified: true,
-    messages: [
-      { direction: "in", text: "Доброе утро! Собрал вопросы к первому прототипу.", time: "10:02" },
-      { direction: "out", text: "Отлично, давайте пройдёмся по ним на созвоне.", time: "10:11" },
-      { direction: "in", text: "Илья: созвон перенесли на 16:00", time: "11:18" }
-    ]
-  },
-  {
-    id: "alex",
-    name: "Алексей Романов",
-    initials: "АР",
-    avatar: "blue",
-    status: "был недавно",
-    handle: "@alexr",
-    bio: "Разработчик мобильных приложений.",
-    preview: "Вы: Хорошо, я посмотрю вечером",
-    time: "Вчера",
-    unread: 0,
-    messages: [
-      { direction: "in", text: "Я подготовил заметки по синхронизации между устройствами.", time: "19:10" },
-      { direction: "out", text: "Хорошо, я посмотрю вечером", time: "19:16" }
-    ]
-  },
-  {
-    id: "saved",
-    name: "Сохранённые",
-    initials: "★",
-    avatar: "logo-avatar",
-    status: "личное облако",
-    handle: "Только для вас",
-    bio: "Заметки, ссылки и файлы, которые всегда под рукой.",
-    preview: "https://webrtc.org/getting-started/",
-    time: "Вс",
-    unread: 0,
-    verified: true,
-    messages: [
-      { direction: "out", text: "Идея: быстрые голосовые комнаты для маленьких команд.", time: "09:20" },
-      { direction: "out", text: "https://webrtc.org/getting-started/", time: "09:22" }
-    ]
-  },
-  {
-    id: "lena",
-    name: "Лена Воронова",
-    initials: "ЛВ",
-    avatar: "pink",
-    status: "была вчера",
-    handle: "@lenavoronova",
-    bio: "Фотограф и путешественница.",
-    preview: "Отправила фотографию",
-    time: "Сб",
-    unread: 1,
-    messages: [
-      { direction: "in", text: "Наконец поймала тот самый вечерний свет 📷", time: "18:43" },
-      { direction: "out", text: "Очень красиво. Особенно цвет неба!", time: "18:48" }
-    ]
-  },
-  {
-    id: "nikita",
-    name: "Никита Орлов",
-    initials: "НО",
-    avatar: "green",
-    status: "был в 10:14",
-    handle: "@nik_orlov",
-    bio: "Музыка, кофе и бег по утрам.",
-    preview: "Спасибо! Всё получилось",
-    time: "Пт",
-    unread: 0,
-    messages: [
-      { direction: "out", text: "Попробуй снова войти после обновления приложения.", time: "10:03" },
-      { direction: "in", text: "Спасибо! Всё получилось", time: "10:14", reaction: "🙌", reactionCount: 1 }
-    ]
-  }
-];
-
-const clone = (value) => JSON.parse(JSON.stringify(value));
 const STORAGE_KEY = "mayak-chats-v2";
 const PROFILE_KEY = "mayak-profile-v1";
 const LIVE_CHAT_ID = "live";
@@ -112,11 +7,12 @@ const stored = localStorage.getItem(STORAGE_KEY);
 let chats;
 
 try {
-  chats = stored ? JSON.parse(stored) : clone(seedChats);
-  if (!Array.isArray(chats) || !chats.length) throw new Error("invalid state");
+  chats = MayakChatState.cleanChats(stored ? JSON.parse(stored) : []);
 } catch {
-  chats = clone(seedChats);
+  chats = MayakChatState.cleanChats([]);
 }
+
+localStorage.setItem(STORAGE_KEY, JSON.stringify(chats));
 
 function makeId(prefix) {
   const random = globalThis.crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -257,7 +153,6 @@ ensureLiveChat();
 let activeChatId = LIVE_CHAT_ID;
 let activeFilter = "all";
 let activeSection = "chats";
-let replyTimer;
 
 const $ = (selector) => document.querySelector(selector);
 const appShell = $("#appShell");
@@ -266,10 +161,7 @@ const messages = $("#messages");
 const messageArea = $("#messageArea");
 const messageInput = $("#messageInput");
 const searchInput = $("#searchInput");
-const typingIndicator = $("#typingIndicator");
 const toast = $("#toast");
-const newChatModal = $("#newChatModal");
-const newChatForm = $("#newChatForm");
 const offlineModal = $("#offlineModal");
 const offlinePacketForm = $("#offlinePacketForm");
 const liveStatus = $("#liveStatus");
@@ -457,6 +349,7 @@ function openConversationPanel({ pushHistory = true } = {}) {
 }
 
 function closeConversationPanel() {
+  if (isMobileLayout() && document.activeElement instanceof HTMLElement) document.activeElement.blur();
   if (isMobileLayout() && history.state?.mayakChatOpen) {
     history.back();
     return;
@@ -501,34 +394,9 @@ async function sendMessage(text) {
   save();
   renderChatList();
   renderMessages();
-  simulateReply(chat.id);
   return true;
 }
 
-function simulateReply(chatId) {
-  clearTimeout(replyTimer);
-  if (chatId === "saved") return;
-  typingIndicator.classList.add("visible");
-  replyTimer = setTimeout(() => {
-    if (activeChatId !== chatId) return typingIndicator.classList.remove("visible");
-    const chat = activeChat();
-    const replies = [
-      "Отлично, договорились 👍",
-      "Звучит хорошо! Давай так и сделаем.",
-      "Вижу сообщение. Вернусь с ответом чуть позже.",
-      "Да, мне нравится этот вариант ✨"
-    ];
-    const reply = replies[Math.floor(Math.random() * replies.length)];
-    const time = currentTime();
-    chat.messages.push({ direction: "in", text: reply, time });
-    chat.preview = reply;
-    chat.time = time;
-    typingIndicator.classList.remove("visible");
-    save();
-    renderChatList();
-    renderMessages();
-  }, 1300);
-}
 
 function resizeComposer() {
   messageInput.style.height = "auto";
@@ -668,7 +536,7 @@ function confirmMessageDeletion(target) {
     title: "Удалить сообщение?",
     text: chat.realtime
       ? "Сообщение исчезнет у всех участников этого диалога."
-      : "Сообщение исчезнет из этого локального демо-чата.",
+      : "Сообщение будет удалено из этого браузера.",
     actionLabel: "Удалить",
     action: () => deleteSelectedMessage(target)
   });
@@ -701,7 +569,7 @@ function confirmChatClear() {
     title: "Очистить историю?",
     text: chat.realtime
       ? "Сообщения исчезнут на всех ваших устройствах. У остальных участников история сохранится."
-      : "Все сообщения в этом локальном демо-чате будут удалены.",
+      : "Все сообщения этого чата будут удалены из этого браузера.",
     actionLabel: "Очистить",
     action: () => clearSelectedChat(target)
   });
@@ -1156,7 +1024,7 @@ async function sendRealtimeMessage(text, chat = activeChat()) {
     if (error.status && error.status < 500) { showToast(error.message); return false; }
     realtime.available = false;
     realtime.connected = false;
-    setLiveStatus("offline", "Сервер потерян", "Сообщение не ушло. Запустите локальный сервер и попробуйте ещё раз.");
+    setLiveStatus("offline", "Сервер потерян", "Сообщение не ушло. Проверьте подключение и попробуйте ещё раз.");
     showToast("Не удалось отправить на сервер");
     return false;
   }
@@ -1361,7 +1229,6 @@ function setSection(section) {
   });
   const chatsOnly = section === "chats";
   $(".filter-row").hidden = !chatsOnly;
-  $("#prototypeCard").hidden = !chatsOnly;
   searchInput.placeholder = section === "calls" ? "Поиск звонков" : section === "contacts" ? "Поиск людей" : "Поиск";
   if (section === "chats") renderChatList();
 }
@@ -1688,41 +1555,6 @@ async function logoutAccount() {
   openProfileModal({ required: true });
 }
 
-function openNewChatModal() {
-  newChatModal.hidden = false;
-  $("#newChatName").focus();
-}
-
-function closeNewChatModal() {
-  newChatModal.hidden = true;
-  newChatForm.reset();
-}
-
-function createLocalChat({ name, handle, message }) {
-  const cleanName = name.trim() || "Новый контакт";
-  const cleanHandle = handle.trim() || `@${cleanName.toLocaleLowerCase("ru").replaceAll(" ", "_")}`;
-  const cleanMessage = message.trim() || "Привет! Это локальный демо-чат.";
-  const time = currentTime();
-  const chat = {
-    id: `local-${Date.now()}`,
-    name: cleanName,
-    initials: makeInitials(cleanName),
-    avatar: ["green", "blue", "pink", "orange", "purple"][Math.floor(Math.random() * 5)],
-    status: "локальный контакт",
-    handle: cleanHandle,
-    bio: "Создано прямо в localhost-прототипе. После backend такие чаты будут храниться на сервере.",
-    preview: cleanMessage,
-    time,
-    unread: 0,
-    messages: [{ direction: "out", text: cleanMessage, time }]
-  };
-  chats = [chat, ...chats];
-  activeChatId = chat.id;
-  save();
-  closeNewChatModal();
-  openChat(chat.id);
-  showToast("Локальный чат создан");
-}
 
 function bytesToBase64(bytes) {
   return btoa(String.fromCharCode(...bytes));
@@ -1944,7 +1776,8 @@ document.querySelectorAll("[data-section]").forEach((button) => {
 });
 
 $(".back-button").addEventListener("click", closeConversationPanel);
-$(".compose-button").addEventListener("click", openNewChatModal);
+$(".compose-button").addEventListener("click", openConnectModal);
+$("#showRoomParticipants").addEventListener("click", openConnectModal);
 $(".attach-button").addEventListener("click", () => showToast("Фото, видео и файлы добавим на следующем этапе"));
 $(".emoji-button").addEventListener("click", () => {
   messageInput.value += ["🙂", "✨", "👍", "🔥"][Math.floor(Math.random() * 4)];
@@ -1987,12 +1820,6 @@ document.addEventListener("click", (event) => {
 document.querySelectorAll(".header-actions .icon-button:not(#chatActionsButton), .profile-actions button").forEach((button) => {
   button.addEventListener("click", () => showToast("Этот раздел скоро появится"));
 });
-document.querySelectorAll("[data-demo-toast]").forEach((button) => {
-  button.addEventListener("click", () => showToast(button.dataset.demoToast));
-});
-document.querySelectorAll("[data-open-chat]").forEach((button) => {
-  button.addEventListener("click", () => openChat(button.dataset.openChat));
-});
 connectRoomButton.addEventListener("click", openConnectModal);
 $("#copyConnectUrl").addEventListener("click", async () => {
   if (!realtime.connectUrl) return showToast("Сначала запустите локальный сервер");
@@ -2009,20 +1836,6 @@ document.querySelectorAll("[data-connect-close]").forEach((button) => {
 });
 connectModal.addEventListener("click", (event) => {
   if (event.target === connectModal) closeConnectModal();
-});
-document.querySelectorAll("[data-modal-close]").forEach((button) => {
-  button.addEventListener("click", closeNewChatModal);
-});
-newChatModal.addEventListener("click", (event) => {
-  if (event.target === newChatModal) closeNewChatModal();
-});
-newChatForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  createLocalChat({
-    name: $("#newChatName").value,
-    handle: $("#newChatHandle").value,
-    message: $("#newChatMessage").value
-  });
 });
 $("#emergencyButton").addEventListener("click", openOfflineModal);
 document.querySelectorAll("[data-offline-close]").forEach((button) => {
@@ -2069,7 +1882,6 @@ $("#importPacketButton").addEventListener("click", async () => {
   }
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !newChatModal.hidden) closeNewChatModal();
   if (event.key === "Escape" && !offlineModal.hidden) closeOfflineModal();
   if (event.key === "Escape" && !connectModal.hidden) closeConnectModal();
   if (event.key === "Escape" && !profileModal.hidden) closeProfileModal();
