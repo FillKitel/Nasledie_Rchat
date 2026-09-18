@@ -9,7 +9,7 @@
     <title>Маяк — мессенджер</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=18" />
+    <link rel="stylesheet" href="styles.css?v=19" />
   </head>
   <body>
     <svg class="svg-sprite" aria-hidden="true">
@@ -267,7 +267,8 @@
           <label>О себе<textarea id="profileBio" rows="3" maxlength="280" placeholder="Пара слов о себе"></textarea><small><span id="profileBioCount">0</span>/280</small></label>
         </div>
         <label id="profileNameField">Ваше имя<input id="profileName" maxlength="60" autocomplete="name" placeholder="Например: Роман" required /></label>
-        <label>Username<input id="profileHandle" maxlength="40" autocomplete="username" placeholder="@roman" /></label>
+        <label>Username<input id="profileHandle" maxlength="40" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="profileHandleHint" placeholder="@roman" /></label>
+        <p class="profile-field-hint" id="profileHandleHint">3–32 символа: русские или латинские буквы, цифры, дефис (-) и подчёркивание (_).</p>
         <label id="profilePasswordField" hidden>Пароль<input id="profilePassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Не менее 8 символов" /></label>
         <label id="profileInviteField" hidden>Код приглашения<input id="profileInvite" type="password" maxlength="128" autocomplete="off" placeholder="Код от организатора тестирования" /></label>
         <label>Название устройства<input id="profileDeviceName" maxlength="60" autocomplete="off" placeholder="Например: Mac Романа" /></label>
@@ -298,8 +299,9 @@
     </div>
 
     <div class="toast" id="toast" role="status"></div>
-    <script src="chat-state.js?v=18" defer></script>
-    <script src="user-search.js?v=18" defer></script>
-    <script src="app.js?v=18" defer></script>
+    <script src="chat-state.js?v=19" defer></script>
+    <script src="user-search.js?v=19" defer></script>
+    <script src="username.js?v=19" defer></script>
+    <script src="app.js?v=19" defer></script>
   </body>
 </html>

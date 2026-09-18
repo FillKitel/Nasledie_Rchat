@@ -5,6 +5,7 @@ const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 const { openDatabase } = require("./database");
+const username = require("../app/username");
 const {
   ApiError,
   loadConfig,
@@ -66,14 +67,7 @@ async function main() {
   }
 
   function normalizeHandle(value) {
-    return safeText(value, "", 40)
-      .replace(/^@+/, "")
-      .toLocaleLowerCase("ru")
-      .replace(/\s+/g, "_")
-      .replace(/[^a-zа-яё0-9_]/giu, "")
-      .replace(/_+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .slice(0, 32);
+    return username.normalize(value);
   }
 
   function normalizeBio(value) {
@@ -543,12 +537,8 @@ async function main() {
     const password = String(input.password || "");
     const bio = normalizeBio(input.bio);
     if (name.length < 2) throw new ApiError(400, "Введите имя", "invalid_name");
-    if (!/^[a-zа-яё0-9_]{3,32}$/iu.test(handle)) {
-      throw new ApiError(
-        400,
-        "Username: от 3 до 32 букв, цифр или _",
-        "invalid_handle",
-      );
+    if (!username.isValid(input.handle)) {
+      throw new ApiError(400, username.errorMessage, "invalid_handle");
     }
     if (requirePassword && (password.length < 8 || password.length > 128)) {
       throw new ApiError(
@@ -977,7 +967,11 @@ async function main() {
       const handle = normalizeHandle(payload.handle);
       const password = String(payload.password || "");
       limiter.check(`login-user:${handle}`, 15, 15 * 60 * 1000);
-      if (password.length < 8 || password.length > 128)
+      if (
+        !username.isValid(payload.handle) ||
+        password.length < 8 ||
+        password.length > 128
+      )
         throw new ApiError(
           401,
           "Неверный username или пароль",

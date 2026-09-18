@@ -28,18 +28,8 @@ function getLocalValue(key, fallback) {
   return fallback;
 }
 
-function normalizeHandle(value, name = "") {
-  const source = String(value || name || "mayak")
-    .trim()
-    .replace(/^@+/, "")
-    .toLocaleLowerCase("ru");
-  const clean = source
-    .replace(/\s+/g, "_")
-    .replace(/[^a-zа-яё0-9_]/gi, "")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 32);
-  return `@${clean || "mayak"}`;
+function normalizeHandle(value) {
+  return MayakUsername.format(value);
 }
 
 function defaultDeviceName() {
@@ -62,7 +52,7 @@ function loadProfile() {
     return {
       id,
       name: name.slice(0, 60),
-      handle: normalizeHandle(parsed.handle, name),
+      handle: normalizeHandle(parsed.handle),
       initials: makeInitials(name),
       bio: String(parsed.bio || "").trim().slice(0, 280),
       avatarUrl: String(parsed.avatarUrl || ""),
@@ -200,7 +190,6 @@ const deleteMessageButton = $("#deleteMessageButton");
 const confirmModal = $("#confirmModal");
 const confirmForm = $("#confirmForm");
 const confirmActionButton = $("#confirmActionButton");
-let profileHandleTouched = false;
 let pendingAvatarBlob = null;
 let pendingAvatarPreviewUrl = "";
 let pendingAvatarRemoval = false;
@@ -1432,7 +1421,7 @@ function updateProfilePreview() {
   const name = loginOnly
     ? (profile?.name || "Вход в Маяк")
     : (profileNameInput.value.trim() || "Аккаунт Маяка");
-  const handle = normalizeHandle(profileHandleInput.value, name);
+  const handle = normalizeHandle(profileHandleInput.value) || "Username ещё не выбран";
   const deviceName = profileDeviceNameInput.value.trim() || defaultDeviceName();
   setAvatar($("#profilePreviewAvatar"), { name, avatarUrl: profilePreviewAvatarUrl() });
   $("#profilePreviewName").textContent = name;
@@ -1467,7 +1456,6 @@ function fillProfileForm({ required = false, preserveValues = false } = {}) {
   const serverAuth = realtime.requiresAuth;
   const editingAccount = serverAuth && realtime.authenticated;
   const loginOnly = serverAuth && !editingAccount && authMode === "login";
-  profileHandleTouched = Boolean(profile?.handle);
   profileModal.dataset.required = required ? "true" : "false";
   $("#authTabs").hidden = !serverAuth || editingAccount;
   $("#profileNameField").hidden = loginOnly;
@@ -1486,7 +1474,7 @@ function fillProfileForm({ required = false, preserveValues = false } = {}) {
   if (!preserveValues) {
     clearAvatarDraft();
     profileNameInput.value = profile?.name || defaultProfileName();
-    profileHandleInput.value = profile?.handle || normalizeHandle("", profileNameInput.value);
+    profileHandleInput.value = profile?.handle || "";
     profilePasswordInput.value = "";
     profileBioInput.value = profile?.bio || "";
     profileDeviceNameInput.value = profile?.deviceName || defaultDeviceName();
@@ -1550,8 +1538,14 @@ async function saveProfileFromForm() {
     return false;
   }
 
+  const handle = normalizeHandle(profileHandleInput.value);
+  if (!editingAccount && !MayakUsername.isValid(profileHandleInput.value)) {
+    showProfileError(MayakUsername.errorMessage);
+    profileHandleInput.focus();
+    return false;
+  }
+
   if (serverAuth) {
-    const handle = normalizeHandle(profileHandleInput.value, name);
     const password = profilePasswordInput.value;
     const deviceName = (profileDeviceNameInput.value.trim() || defaultDeviceName()).slice(0, 60);
     if (!editingAccount && password.length < 8) {
@@ -1610,7 +1604,7 @@ async function saveProfileFromForm() {
   profile = {
     id: profile?.id || makeId("profile"),
     name,
-    handle: normalizeHandle(profileHandleInput.value, name),
+    handle,
     initials: makeInitials(name),
     bio,
     avatarUrl,
@@ -1813,16 +1807,8 @@ document.querySelectorAll("[data-auth-mode]").forEach((button) => {
   });
 });
 
-profileNameInput.addEventListener("input", () => {
-  if (!profileHandleTouched) profileHandleInput.value = normalizeHandle("", profileNameInput.value);
-  updateProfilePreview();
-});
-
-profileHandleInput.addEventListener("input", () => {
-  profileHandleTouched = true;
-  profileHandleInput.value = normalizeHandle(profileHandleInput.value, profileNameInput.value);
-  updateProfilePreview();
-});
+profileNameInput.addEventListener("input", updateProfilePreview);
+profileHandleInput.addEventListener("input", updateProfilePreview);
 
 profileDeviceNameInput.addEventListener("input", updateProfilePreview);
 profileBioInput.addEventListener("input", updateBioCount);
