@@ -150,6 +150,39 @@ for (const kind of ["sqlite", "postgres"])
         );
         assert.deepEqual(avatarDownload.bytes, avatarBytes);
 
+        const anonymousProfile = await api(
+          baseUrl,
+          `/api/users/${encodeURIComponent(roman.payload.user.id)}`,
+        );
+        assert.equal(anonymousProfile.status, 401);
+
+        const publicProfile = await api(
+          baseUrl,
+          `/api/users/${encodeURIComponent(roman.payload.user.id)}`,
+          { cookie: roman.cookie },
+        );
+        assert.equal(publicProfile.status, 200);
+        assert.deepEqual(
+          Object.keys(publicProfile.payload.user).sort(),
+          [
+            "id",
+            "name",
+            "handle",
+            "bio",
+            "avatarUrl",
+            "createdAt",
+            "updatedAt",
+          ].sort(),
+        );
+        assert.equal(publicProfile.payload.user.name, "Роман");
+        assert.match(publicProfile.payload.user.avatarUrl, /\/avatar\?v=/);
+
+        const missingProfile = await api(baseUrl, "/api/users/missing-user", {
+          cookie: roman.cookie,
+        });
+        assert.equal(missingProfile.status, 404);
+        assert.equal(missingProfile.payload.code, "user_not_found");
+
         const profileUpdate = await api(baseUrl, "/api/auth/me", {
           method: "PATCH",
           cookie: roman.cookie,
@@ -161,6 +194,19 @@ for (const kind of ["sqlite", "postgres"])
         });
         assert.equal(profileUpdate.status, 200);
         assert.equal(profileUpdate.payload.user.bio, "Новая строка профиля");
+        const refreshedPublicProfile = await api(
+          baseUrl,
+          `/api/users/${encodeURIComponent(roman.payload.user.id)}`,
+          { cookie: roman.cookie },
+        );
+        assert.equal(
+          refreshedPublicProfile.payload.user.name,
+          "Роман Орендаренко",
+        );
+        assert.equal(
+          refreshedPublicProfile.payload.user.bio,
+          "Новая строка профиля",
+        );
 
         const avatarDelete = await binaryApi(baseUrl, "/api/auth/avatar", {
           method: "DELETE",
@@ -192,6 +238,16 @@ for (const kind of ["sqlite", "postgres"])
           },
         });
         assert.equal(kolya.status, 201);
+
+        const kolyaPublicProfile = await api(
+          baseUrl,
+          `/api/users/${encodeURIComponent(kolya.payload.user.id)}`,
+          { cookie: roman.cookie },
+        );
+        assert.equal(kolyaPublicProfile.status, 200);
+        assert.equal(kolyaPublicProfile.payload.user.name, "Коля");
+        assert.equal(kolyaPublicProfile.payload.user.handle, "@kolya");
+        assert.equal(kolyaPublicProfile.payload.user.bio, "");
 
         const arina = await api(baseUrl, "/api/auth/register", {
           method: "POST",

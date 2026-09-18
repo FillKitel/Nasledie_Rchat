@@ -15,7 +15,9 @@ try {
 localStorage.setItem(STORAGE_KEY, JSON.stringify(chats));
 
 function makeId(prefix) {
-  const random = globalThis.crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const random = globalThis.crypto?.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return `${prefix}-${random}`;
 }
 
@@ -54,11 +56,16 @@ function loadProfile() {
       name: name.slice(0, 60),
       handle: normalizeHandle(parsed.handle),
       initials: makeInitials(name),
-      bio: String(parsed.bio || "").trim().slice(0, 280),
+      bio: String(parsed.bio || "")
+        .trim()
+        .slice(0, 280),
       avatarUrl: String(parsed.avatarUrl || ""),
-      deviceName: String(parsed.deviceName || defaultDeviceName()).trim().slice(0, 60),
+      deviceName: String(parsed.deviceName || defaultDeviceName())
+        .trim()
+        .slice(0, 60),
       createdAt: parsed.createdAt || new Date().toISOString(),
-      updatedAt: parsed.updatedAt || parsed.createdAt || new Date().toISOString()
+      updatedAt:
+        parsed.updatedAt || parsed.createdAt || new Date().toISOString(),
     };
   } catch {
     return null;
@@ -80,14 +87,20 @@ function currentAuthorId() {
 }
 
 function currentAuthorName() {
-  return profile?.name || defaultProfileName() || `Устройство ${deviceId.slice(-4).toLocaleUpperCase("ru")}`;
+  return (
+    profile?.name ||
+    defaultProfileName() ||
+    `Устройство ${deviceId.slice(-4).toLocaleUpperCase("ru")}`
+  );
 }
 
 function currentDeviceName() {
   return profile?.deviceName || defaultDeviceName();
 }
 
-const hostedPage = location.protocol === "https:" && !["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+const hostedPage =
+  location.protocol === "https:" &&
+  !["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
 const realtime = {
   mode: hostedPage ? "cloud" : "local",
   inviteRequired: false,
@@ -101,7 +114,7 @@ const realtime = {
   participants: [],
   connectUrl: "",
   source: null,
-  knownMessageIds: new Set()
+  knownMessageIds: new Set(),
 };
 
 function createLiveChat() {
@@ -119,7 +132,7 @@ function createLiveChat() {
     time: "v0.9",
     unread: 0,
     verified: true,
-    messages: []
+    messages: [],
   };
 }
 
@@ -134,7 +147,8 @@ function ensureLiveChat() {
   chat.handle = "localhost realtime";
   chat.serverChatId = LIVE_CHAT_ID;
   chat.realtime = true;
-  chat.bio = "Первый настоящий диалог: сообщения проходят через локальный сервер и появляются во всех открытых окнах.";
+  chat.bio =
+    "Первый настоящий диалог: сообщения проходят через локальный сервер и появляются во всех открытых окнах.";
   return chat;
 }
 
@@ -156,10 +170,13 @@ let peopleViewRevision = 0;
 let openingUserId = "";
 const peopleSearch = MayakUserSearch.createSearch({
   search: async (query, signal) => {
-    const { users } = await fetchJson(`/api/users?query=${encodeURIComponent(query)}`, { signal });
+    const { users } = await fetchJson(
+      `/api/users?query=${encodeURIComponent(query)}`,
+      { signal },
+    );
     return users;
   },
-  onChange: renderPeopleSearch
+  onChange: renderPeopleSearch,
 });
 const toast = $("#toast");
 const offlineModal = $("#offlineModal");
@@ -181,7 +198,16 @@ const profileAvatarInput = $("#profileAvatarInput");
 const profileAvatarChoose = $("#profileAvatarChoose");
 const profileAvatarRemove = $("#profileAvatarRemove");
 const profileLogoutButton = $("#profileLogoutButton");
-const profileButtons = [$("#profileButton"), $("#inboxProfileButton")].filter(Boolean);
+const profileButtons = [$("#profileButton"), $("#inboxProfileButton")].filter(
+  Boolean,
+);
+const publicProfileModal = $("#publicProfileModal");
+const publicProfileMessage = $("#publicProfileMessage");
+const avatarCropModal = $("#avatarCropModal");
+const avatarCropStage = $("#avatarCropStage");
+const avatarCropImage = $("#avatarCropImage");
+const avatarCropZoom = $("#avatarCropZoom");
+const avatarCropApply = $("#avatarCropApply");
 const chatActionsButton = $("#chatActionsButton");
 const chatActionsMenu = $("#chatActionsMenu");
 const clearChatButton = $("#clearChatButton");
@@ -193,6 +219,10 @@ const confirmActionButton = $("#confirmActionButton");
 let pendingAvatarBlob = null;
 let pendingAvatarPreviewUrl = "";
 let pendingAvatarRemoval = false;
+let viewedUser = null;
+let publicProfileRevision = 0;
+let avatarCropDraft = null;
+let avatarCropPointer = null;
 let pendingMessageTarget = null;
 let pendingConfirmAction = null;
 
@@ -221,10 +251,14 @@ function setAvatar(element, { avatarUrl = "", name = "", initials = "" } = {}) {
   const image = document.createElement("img");
   image.src = avatarUrl;
   image.alt = "";
-  image.addEventListener("error", () => {
-    image.remove();
-    element.textContent = initials || makeInitials(name);
-  }, { once: true });
+  image.addEventListener(
+    "error",
+    () => {
+      image.remove();
+      element.textContent = initials || makeInitials(name);
+    },
+    { once: true },
+  );
   element.append(image);
 }
 
@@ -239,20 +273,27 @@ function activeChat() {
 function renderChatList() {
   const query = searchInput.value.trim().toLocaleLowerCase("ru");
   const visible = chats.filter((chat) => {
-    const matchesSearch = `${chat.name} ${chat.preview || ""}`.toLocaleLowerCase("ru").includes(query);
+    const matchesSearch = `${chat.name} ${chat.preview || ""}`
+      .toLocaleLowerCase("ru")
+      .includes(query);
     const matchesFilter = activeFilter === "all" || chat.unread > 0;
     return matchesSearch && matchesFilter;
   });
 
   $("#allCount").textContent = chats.length;
-  $("#unreadCount").textContent = chats.filter((chat) => chat.unread > 0).length;
+  $("#unreadCount").textContent = chats.filter(
+    (chat) => chat.unread > 0,
+  ).length;
 
   if (!visible.length) {
-    chatList.innerHTML = '<div class="empty-search">Ничего не найдено.<br>Попробуйте другой запрос.</div>';
+    chatList.innerHTML =
+      '<div class="empty-search">Ничего не найдено.<br>Попробуйте другой запрос.</div>';
     return;
   }
 
-  chatList.innerHTML = visible.map((chat) => `
+  chatList.innerHTML = visible
+    .map(
+      (chat) => `
     <button class="chat-item ${chat.id === activeChatId ? "active" : ""}" data-chat-id="${chat.id}">
       <span class="avatar ${chat.avatar}">${avatarInnerHtml(chat)}</span>
       <span class="chat-copy">
@@ -261,7 +302,9 @@ function renderChatList() {
       </span>
       <span class="chat-meta"><time>${escapeHtml(chat.time)}</time>${chat.unread ? `<b class="unread-badge">${chat.unread}</b>` : ""}</span>
     </button>
-  `).join("");
+  `,
+    )
+    .join("");
 
   chatList.querySelectorAll("[data-chat-id]").forEach((button) => {
     button.addEventListener("click", () => openChat(button.dataset.chatId));
@@ -271,26 +314,35 @@ function renderChatList() {
 function renderMessages() {
   const chat = activeChat();
   closeMessageActions();
-  const emptyText = chat.id === LIVE_CHAT_ID
-    ? "Откройте этот же адрес во втором окне и отправьте сообщение. Если сервер запущен, оно появится там автоматически."
-    : chat.realtime
-      ? "Это личный чат. Сообщения идут через сервер Маяка."
-    : "Здесь пока нет сообщений.";
+  const emptyText =
+    chat.id === LIVE_CHAT_ID
+      ? "Откройте этот же адрес во втором окне и отправьте сообщение. Если сервер запущен, оно появится там автоматически."
+      : chat.realtime
+        ? "Это личный чат. Сообщения идут через сервер Маяка."
+        : "Здесь пока нет сообщений.";
   messages.innerHTML = `
     <div class="day-divider">Сегодня</div>
-    ${chat.messages.length ? chat.messages.map((message, index) => {
-      const previous = chat.messages[index - 1];
-      const grouped = previous && previous.direction === message.direction;
-      const messageAction = message.direction === "out"
-        ? `<button class="message-action-button" type="button" data-message-action data-message-index="${index}" data-message-id="${escapeHtml(message.id || "")}" aria-label="Действия с сообщением" aria-expanded="false"><svg><use href="#i-more"/></svg></button>`
-        : "";
-      return `
+    ${
+      chat.messages.length
+        ? chat.messages
+            .map((message, index) => {
+              const previous = chat.messages[index - 1];
+              const grouped =
+                previous && previous.direction === message.direction;
+              const messageAction =
+                message.direction === "out"
+                  ? `<button class="message-action-button" type="button" data-message-action data-message-index="${index}" data-message-id="${escapeHtml(message.id || "")}" aria-label="Действия с сообщением" aria-expanded="false"><svg><use href="#i-more"/></svg></button>`
+                  : "";
+              return `
         <div class="message ${message.direction} ${grouped ? "grouped" : ""}">
           <div class="message-row">${messageAction}<div class="bubble">${message.authorName && message.direction === "in" ? `<strong class="message-author">${escapeHtml(message.authorName)}</strong>` : ""}${escapeHtml(message.text).replaceAll("\n", "<br>")}<span class="message-time">${escapeHtml(message.time)}${message.direction === "out" ? '<span class="checks">✓✓</span>' : ""}</span></div></div>
           ${message.reaction ? `<button class="reaction" aria-label="Реакция ${escapeHtml(message.reaction)}">${escapeHtml(message.reaction)} <small>${message.reactionCount || 1}</small></button>` : ""}
         </div>
       `;
-    }).join("") : `<div class="empty-chat"><strong>Ждём первое сообщение</strong>${escapeHtml(emptyText)}</div>`}
+            })
+            .join("")
+        : `<div class="empty-chat"><strong>Ждём первое сообщение</strong>${escapeHtml(emptyText)}</div>`
+    }
   `;
 
   messages.querySelectorAll(".reaction").forEach((button) => {
@@ -308,12 +360,14 @@ function renderMessages() {
     });
   });
 
-  requestAnimationFrame(() => { messageArea.scrollTop = messageArea.scrollHeight; });
+  requestAnimationFrame(() => {
+    messageArea.scrollTop = messageArea.scrollHeight;
+  });
 }
 
 function updateHeader() {
   const chat = activeChat();
-  $("#headerAvatar").className = `avatar ${chat.avatar}`;
+  $("#headerAvatar").className = `avatar header-avatar-button ${chat.avatar}`;
   setAvatar($("#headerAvatar"), chat);
   $("#headerName").textContent = chat.name;
   $("#headerStatus").textContent = chat.status;
@@ -322,9 +376,24 @@ function updateHeader() {
   $("#detailsName").textContent = chat.name;
   $("#detailsHandle").textContent = chat.handle;
   $("#detailsBio").textContent = chat.bio;
+  const hasPublicProfile = Boolean(
+    chat.peer?.profileId && chat.id !== LIVE_CHAT_ID,
+  );
+  for (const button of [
+    $("#headerAvatar"),
+    $("#personHeading"),
+    $("#profileInfoButton"),
+    $("#detailsProfileButton"),
+  ]) {
+    button.disabled = !hasPublicProfile;
+    button.title = hasPublicProfile
+      ? `Открыть профиль ${chat.name}`
+      : "У общей комнаты нет личного профиля";
+  }
   connectRoomButton.hidden = chat.id !== LIVE_CHAT_ID;
   const headerOnlineDot = $(".person-heading .online-dot");
-  if (headerOnlineDot) headerOnlineDot.style.display = chat.status === "в сети" ? "block" : "none";
+  if (headerOnlineDot)
+    headerOnlineDot.style.display = chat.status === "в сети" ? "block" : "none";
 }
 
 function isMobileLayout() {
@@ -341,14 +410,23 @@ function openConversationPanel({ pushHistory = true } = {}) {
   appShell.classList.add("chat-open");
   if (!pushHistory || !isMobileLayout()) return;
   if (history.state?.mayakChatOpen) {
-    history.replaceState({ mayakChatOpen: true, chatId: activeChatId }, "", location.href);
+    history.replaceState(
+      { mayakChatOpen: true, chatId: activeChatId },
+      "",
+      location.href,
+    );
     return;
   }
-  history.pushState({ mayakChatOpen: true, chatId: activeChatId }, "", location.href);
+  history.pushState(
+    { mayakChatOpen: true, chatId: activeChatId },
+    "",
+    location.href,
+  );
 }
 
 function closeConversationPanel() {
-  if (isMobileLayout() && document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  if (isMobileLayout() && document.activeElement instanceof HTMLElement)
+    document.activeElement.blur();
   if (isMobileLayout() && history.state?.mayakChatOpen) {
     history.back();
     return;
@@ -372,7 +450,10 @@ function openChat(id) {
 }
 
 function currentTime() {
-  return new Intl.DateTimeFormat("ru", { hour: "2-digit", minute: "2-digit" }).format(new Date());
+  return new Intl.DateTimeFormat("ru", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date());
 }
 
 async function sendMessage(text) {
@@ -394,7 +475,6 @@ async function sendMessage(text) {
   renderMessages();
   return true;
 }
-
 
 function resizeComposer() {
   messageInput.style.height = "auto";
@@ -423,9 +503,11 @@ function toggleChatActions() {
 
 function closeMessageActions() {
   messageActionsMenu.hidden = true;
-  messages.querySelectorAll('[data-message-action][aria-expanded="true"]').forEach((button) => {
-    button.setAttribute("aria-expanded", "false");
-  });
+  messages
+    .querySelectorAll('[data-message-action][aria-expanded="true"]')
+    .forEach((button) => {
+      button.setAttribute("aria-expanded", "false");
+    });
 }
 
 function openMessageActions(button) {
@@ -436,18 +518,22 @@ function openMessageActions(button) {
     localChatId: chat.id,
     chatId: chat.serverChatId || chat.id,
     messageId: button.dataset.messageId || "",
-    messageIndex: Number(button.dataset.messageIndex)
+    messageIndex: Number(button.dataset.messageIndex),
   };
   button.setAttribute("aria-expanded", "true");
   messageActionsMenu.hidden = false;
   const rect = button.getBoundingClientRect();
   const menuWidth = Math.max(messageActionsMenu.offsetWidth, 190);
   const menuHeight = Math.max(messageActionsMenu.offsetHeight, 48);
-  const left = Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8));
+  const left = Math.max(
+    8,
+    Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8),
+  );
   const below = rect.bottom + 6;
-  const top = below + menuHeight <= window.innerHeight - 8
-    ? below
-    : Math.max(8, rect.top - menuHeight - 6);
+  const top =
+    below + menuHeight <= window.innerHeight - 8
+      ? below
+      : Math.max(8, rect.top - menuHeight - 6);
   messageActionsMenu.style.left = `${left}px`;
   messageActionsMenu.style.top = `${top}px`;
 }
@@ -475,14 +561,24 @@ function updateChatAfterHistoryChange(chat) {
     chat.preview = `${last.direction === "out" ? "Вы: " : ""}${last.text}`;
     chat.time = last.time;
   } else {
-    chat.preview = chat.realtime ? realtimeEmptyPreview(chat) : "Пока нет сообщений";
+    chat.preview = chat.realtime
+      ? realtimeEmptyPreview(chat)
+      : "Пока нет сообщений";
     chat.time = chat.realtime && realtime.available ? "online" : "";
   }
   chat.unread = 0;
 }
 
-function applyMessageDeleted({ chatId, messageId }, { localChatId = "", messageIndex = -1 } = {}) {
-  const chat = chats.find((item) => item.serverChatId === chatId || item.id === chatId || item.id === localChatId);
+function applyMessageDeleted(
+  { chatId, messageId },
+  { localChatId = "", messageIndex = -1 } = {},
+) {
+  const chat = chats.find(
+    (item) =>
+      item.serverChatId === chatId ||
+      item.id === chatId ||
+      item.id === localChatId,
+  );
   if (!chat) return;
   if (messageId) {
     chat.messages = chat.messages.filter((message) => message.id !== messageId);
@@ -496,12 +592,26 @@ function applyMessageDeleted({ chatId, messageId }, { localChatId = "", messageI
   if (chat.id === activeChatId) renderMessages();
 }
 
-function applyChatCleared({ chatId, beforeSequence }, { localChatId = "" } = {}) {
-  const chat = chats.find((item) => item.serverChatId === chatId || item.id === chatId || item.id === localChatId);
+function applyChatCleared(
+  { chatId, beforeSequence },
+  { localChatId = "" } = {},
+) {
+  const chat = chats.find(
+    (item) =>
+      item.serverChatId === chatId ||
+      item.id === chatId ||
+      item.id === localChatId,
+  );
   if (!chat) return;
-  if (Number.isFinite(beforeSequence)) chat.clearedBeforeSequence = Math.max(chat.clearedBeforeSequence || 0, beforeSequence);
+  if (Number.isFinite(beforeSequence))
+    chat.clearedBeforeSequence = Math.max(
+      chat.clearedBeforeSequence || 0,
+      beforeSequence,
+    );
   chat.messages = chat.messages.filter((message) => {
-    const keep = Number.isFinite(beforeSequence) && message.sequence > chat.clearedBeforeSequence;
+    const keep =
+      Number.isFinite(beforeSequence) &&
+      message.sequence > chat.clearedBeforeSequence;
     if (!keep && message.id) realtime.knownMessageIds.delete(message.id);
     return keep;
   });
@@ -516,10 +626,13 @@ async function deleteSelectedMessage(target) {
   if (!chat) return;
   if (chat.realtime) {
     if (!target.messageId) throw new Error("Сообщение ещё не синхронизировано");
-    const { deleted } = await fetchJson(`/api/messages/${encodeURIComponent(target.messageId)}`, {
-      method: "DELETE",
-      timeout: 3000
-    });
+    const { deleted } = await fetchJson(
+      `/api/messages/${encodeURIComponent(target.messageId)}`,
+      {
+        method: "DELETE",
+        timeout: 3000,
+      },
+    );
     applyMessageDeleted(deleted);
   } else {
     applyMessageDeleted({ chatId: chat.id, messageId: "" }, target);
@@ -536,7 +649,7 @@ function confirmMessageDeletion(target) {
       ? "Сообщение исчезнет у всех участников этого диалога."
       : "Сообщение будет удалено из этого браузера.",
     actionLabel: "Удалить",
-    action: () => deleteSelectedMessage(target)
+    action: () => deleteSelectedMessage(target),
   });
 }
 
@@ -544,10 +657,13 @@ async function clearSelectedChat(target) {
   const chat = chats.find((item) => item.id === target.localChatId);
   if (!chat) return;
   if (chat.realtime) {
-    const { cleared } = await fetchJson(`/api/conversations/${encodeURIComponent(target.chatId)}/messages`, {
-      method: "DELETE",
-      timeout: 3000
-    });
+    const { cleared } = await fetchJson(
+      `/api/conversations/${encodeURIComponent(target.chatId)}/messages`,
+      {
+        method: "DELETE",
+        timeout: 3000,
+      },
+    );
     applyChatCleared(cleared, target);
   } else {
     applyChatCleared({ chatId: chat.id }, target);
@@ -569,7 +685,7 @@ function confirmChatClear() {
       ? "Сообщения исчезнут на всех ваших устройствах. У остальных участников история сохранится."
       : "Все сообщения этого чата будут удалены из этого браузера.",
     actionLabel: "Очистить",
-    action: () => clearSelectedChat(target)
+    action: () => clearSelectedChat(target),
   });
 }
 
@@ -600,6 +716,89 @@ function participantById(id) {
   return realtime.participants.find((participant) => participant.id === id);
 }
 
+function publicUserFromParticipant(participant) {
+  if (!participant) return null;
+  return {
+    id: participantPeerId(participant),
+    name: participant.name || "Пользователь Маяка",
+    handle: participant.handle || "",
+    bio: participant.bio || "",
+    avatarUrl: participant.avatarUrl || "",
+    createdAt: participant.createdAt || "",
+    updatedAt: participant.updatedAt || "",
+  };
+}
+
+function publicUserFromChat(chat) {
+  if (!chat?.peer?.profileId || chat.id === LIVE_CHAT_ID) return null;
+  return {
+    id: chat.peer.profileId,
+    name: chat.name,
+    handle: chat.handle,
+    bio: chat.bio,
+    avatarUrl: chat.avatarUrl || "",
+    createdAt: chat.peer.createdAt || "",
+    updatedAt: chat.peer.updatedAt || "",
+  };
+}
+
+function memberSince(value) {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return "Дата пока не указана";
+  return new Intl.DateTimeFormat("ru", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function renderPublicProfile() {
+  if (!viewedUser) return;
+  setAvatar($("#publicProfileAvatar"), viewedUser);
+  $("#publicProfileName").textContent = viewedUser.name || "Пользователь Маяка";
+  $("#publicProfileHandle").textContent =
+    viewedUser.handle || "Username не указан";
+  $("#publicProfileBio").textContent =
+    viewedUser.bio || "Пользователь пока ничего о себе не рассказал.";
+  $("#publicProfileSince").textContent = memberSince(viewedUser.createdAt);
+  publicProfileMessage.hidden =
+    !viewedUser.id || viewedUser.id === currentAuthorId();
+}
+
+async function openPublicProfile(user) {
+  if (!user?.id) return showToast("Профиль этого участника пока недоступен");
+  closeConnectModal();
+  viewedUser = { ...user };
+  renderPublicProfile();
+  publicProfileModal.hidden = false;
+  const revision = ++publicProfileRevision;
+  if (!realtime.authenticated) return;
+  try {
+    const { user: freshUser } = await fetchJson(
+      `/api/users/${encodeURIComponent(user.id)}`,
+      { timeout: 5000 },
+    );
+    if (revision !== publicProfileRevision || publicProfileModal.hidden) return;
+    viewedUser = freshUser;
+    renderPublicProfile();
+  } catch (error) {
+    if (error.status === 401) handleSessionExpired();
+    else if (error.status === 404) showToast("Этот профиль больше недоступен");
+  }
+}
+
+function closePublicProfile() {
+  publicProfileRevision++;
+  publicProfileModal.hidden = true;
+  viewedUser = null;
+}
+
+function openActiveChatProfile() {
+  const user = publicUserFromChat(activeChat());
+  if (!user) return showToast("У общей комнаты нет личного профиля");
+  void openPublicProfile(user);
+}
+
 function renderPeopleSearch() {
   const state = peopleSearch.getState();
   const status = $("#peopleSearchStatus");
@@ -608,28 +807,56 @@ function renderPeopleSearch() {
   $("#peopleSearchRetry").hidden = !failed || state.error?.status === 401;
   $("#peopleSearchLogin").hidden = authenticated && state.error?.status !== 401;
   status.dataset.error = String(failed);
-  status.textContent = !authenticated || state.error?.status === 401
-    ? "Войдите в аккаунт, чтобы искать людей и писать им."
-    : state.status === "idle" ? "Введите минимум 2 символа в поиске выше."
-    : state.status === "loading" ? "Ищем пользователей…"
-    : failed ? (state.error?.status === 429 ? "Слишком много запросов. Подождите минуту и повторите поиск." : "Не удалось выполнить поиск. Проверьте подключение и попробуйте ещё раз.")
-    : state.users.length ? (state.users.length === 20 ? "Показаны первые 20. Уточните имя или @username." : `Найдено: ${state.users.length}. Выберите человека, чтобы написать.`)
-    : "Никого не нашли. Проверьте имя или попросите у человека его @username.";
-  peopleSearchResults.setAttribute("aria-busy", String(authenticated && state.status === "loading"));
+  status.textContent =
+    !authenticated || state.error?.status === 401
+      ? "Войдите в аккаунт, чтобы искать людей и писать им."
+      : state.status === "idle"
+        ? "Введите минимум 2 символа в поиске выше."
+        : state.status === "loading"
+          ? "Ищем пользователей…"
+          : failed
+            ? state.error?.status === 429
+              ? "Слишком много запросов. Подождите минуту и повторите поиск."
+              : "Не удалось выполнить поиск. Проверьте подключение и попробуйте ещё раз."
+            : state.users.length
+              ? state.users.length === 20
+                ? "Показаны первые 20. Уточните имя или @username."
+                : `Найдено: ${state.users.length}. Откройте профиль или сразу напишите.`
+              : "Никого не нашли. Проверьте имя или попросите у человека его @username.";
+  peopleSearchResults.setAttribute(
+    "aria-busy",
+    String(authenticated && state.status === "loading"),
+  );
   peopleSearchResults.replaceChildren();
   if (!authenticated || state.status !== "ready") return;
   for (const user of state.users) {
     const item = document.createElement("div");
     item.setAttribute("role", "listitem");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "contact-card people-search-result";
-    button.disabled = Boolean(openingUserId);
-    button.setAttribute("aria-label", `Написать: ${user.name} ${user.handle}`);
-    button.innerHTML = `<span class="avatar logo-avatar"></span><span><strong>${escapeHtml(user.name)}</strong><p>${escapeHtml(user.handle)}</p></span><span class="people-write">${openingUserId === user.id ? "Открываем…" : "Написать"}</span>`;
-    setAvatar(button.querySelector(".avatar"), user);
-    button.addEventListener("click", () => void openSearchedUser(user));
-    item.append(button);
+    const card = document.createElement("div");
+    card.className = "people-search-result";
+    const profileButton = document.createElement("button");
+    profileButton.type = "button";
+    profileButton.className = "people-profile-trigger";
+    profileButton.setAttribute(
+      "aria-label",
+      `Открыть профиль: ${user.name} ${user.handle}`,
+    );
+    profileButton.innerHTML = `<span class="avatar logo-avatar"></span><span><strong>${escapeHtml(user.name)}</strong><p>${escapeHtml(user.handle)}</p></span>`;
+    setAvatar(profileButton.querySelector(".avatar"), user);
+    profileButton.addEventListener("click", () => void openPublicProfile(user));
+    const writeButton = document.createElement("button");
+    writeButton.type = "button";
+    writeButton.className = "people-write";
+    writeButton.disabled = Boolean(openingUserId);
+    writeButton.textContent =
+      openingUserId === user.id ? "Открываем…" : "Написать";
+    writeButton.setAttribute(
+      "aria-label",
+      `Написать: ${user.name} ${user.handle}`,
+    );
+    writeButton.addEventListener("click", () => void openSearchedUser(user));
+    card.append(profileButton, writeButton);
+    item.append(card);
     peopleSearchResults.append(item);
   }
 }
@@ -649,19 +876,34 @@ async function openSearchedUser(user) {
   try {
     const { conversation } = await fetchJson("/api/conversations/direct", {
       method: "POST",
-      body: JSON.stringify({ peerUserId: user.id })
+      body: JSON.stringify({ peerUserId: user.id }),
     });
-    if (revision !== peopleViewRevision || accountId !== profile?.id || !realtime.authenticated) return;
-    const chat = upsertParticipantChat({ ...user, profileId: user.id }, conversation);
+    if (
+      revision !== peopleViewRevision ||
+      accountId !== profile?.id ||
+      !realtime.authenticated
+    )
+      return;
+    const chat = upsertParticipantChat(
+      { ...user, profileId: user.id },
+      conversation,
+    );
     // A newly opened dialog must remain visible even after filtering unread chats.
     activeFilter = "all";
-    document.querySelectorAll(".filter").forEach((button) => button.classList.toggle("active", button.dataset.filter === "all"));
+    document
+      .querySelectorAll(".filter")
+      .forEach((button) =>
+        button.classList.toggle("active", button.dataset.filter === "all"),
+      );
     searchInput.blur();
     openChat(chat.id);
   } catch (error) {
     if (revision !== peopleViewRevision || accountId !== profile?.id) return;
     if (error.status === 401) handleSessionExpired();
-    else showToast(error.message || "Не удалось открыть диалог. Попробуйте ещё раз.");
+    else
+      showToast(
+        error.message || "Не удалось открыть диалог. Попробуйте ещё раз.",
+      );
   } finally {
     if (revision === peopleViewRevision) {
       openingUserId = "";
@@ -678,7 +920,12 @@ function upsertParticipantChat(participant, conversation) {
   const bio = peer.bio || participant.bio || "";
   const avatarUrl = peer.avatarUrl || participant.avatarUrl || "";
   const device = participant.deviceName || "устройство Маяка";
-  let chat = chats.find((item) => item.serverChatId === serverChatId || item.id === serverChatId);
+  const peerProfileId = peer.id || participant.profileId || participant.id;
+  const peerCreatedAt = peer.createdAt || participant.createdAt || "";
+  const peerUpdatedAt = peer.updatedAt || participant.updatedAt || "";
+  let chat = chats.find(
+    (item) => item.serverChatId === serverChatId || item.id === serverChatId,
+  );
 
   if (!chat) {
     chat = {
@@ -691,16 +938,20 @@ function upsertParticipantChat(participant, conversation) {
       avatarUrl,
       status: "аккаунт Маяка",
       handle,
-      bio: bio || "Личный диалог. Получатель увидит сообщения, когда подключится к Маяку.",
+      bio:
+        bio ||
+        "Личный диалог. Получатель увидит сообщения, когда подключится к Маяку.",
       preview: "Личный чат готов — напишите первое сообщение",
       time: "",
       unread: 0,
       messages: [],
       peer: {
-        id: participant.id,
-        profileId: participant.profileId,
-        deviceName: device
-      }
+        id: peerProfileId,
+        profileId: peerProfileId,
+        deviceName: device,
+        createdAt: peerCreatedAt,
+        updatedAt: peerUpdatedAt,
+      },
     };
   }
 
@@ -711,11 +962,15 @@ function upsertParticipantChat(participant, conversation) {
   chat.avatarUrl = avatarUrl;
   chat.status = "аккаунт Маяка";
   chat.handle = handle;
-  chat.bio = bio || "Личный диалог. Получатель увидит сообщения, когда подключится к Маяку.";
+  chat.bio =
+    bio ||
+    "Личный диалог. Получатель увидит сообщения, когда подключится к Маяку.";
   chat.peer = {
-    id: participant.id,
-    profileId: participant.profileId,
-    deviceName: device
+    id: peerProfileId,
+    profileId: peerProfileId,
+    deviceName: device,
+    createdAt: peerCreatedAt,
+    updatedAt: peerUpdatedAt,
   };
   chats = [chat, ...chats.filter((item) => item.id !== chat.id)];
   save();
@@ -723,11 +978,25 @@ function upsertParticipantChat(participant, conversation) {
 }
 
 function syncServerConversations(serverConversations = []) {
-  const allowed = new Set(serverConversations.map((conversation) => conversation.id));
-  chats = chats.filter((chat) => !chat.realtime || chat.id === LIVE_CHAT_ID || allowed.has(chat.serverChatId || chat.id));
+  const allowed = new Set(
+    serverConversations.map((conversation) => conversation.id),
+  );
+  chats = chats.filter(
+    (chat) =>
+      !chat.realtime ||
+      chat.id === LIVE_CHAT_ID ||
+      allowed.has(chat.serverChatId || chat.id),
+  );
   for (const conversation of serverConversations) {
-    if (conversation.id === LIVE_CHAT_ID) ensureLiveChat().clearedBeforeSequence = conversation.clearedBeforeSequence || 0;
-    if (!conversation?.id || conversation.id === LIVE_CHAT_ID || conversation.kind !== "direct") continue;
+    if (conversation.id === LIVE_CHAT_ID)
+      ensureLiveChat().clearedBeforeSequence =
+        conversation.clearedBeforeSequence || 0;
+    if (
+      !conversation?.id ||
+      conversation.id === LIVE_CHAT_ID ||
+      conversation.kind !== "direct"
+    )
+      continue;
     const peer = conversation.peer || {};
     const participant = {
       id: peer.id || conversation.id,
@@ -736,11 +1005,14 @@ function syncServerConversations(serverConversations = []) {
       handle: peer.handle || "локальный аккаунт",
       bio: peer.bio || "",
       avatarUrl: peer.avatarUrl || "",
-      deviceName: "Устройство Маяка"
+      deviceName: "Устройство Маяка",
     };
     const chat = upsertParticipantChat(participant, conversation);
     chat.clearedBeforeSequence = conversation.clearedBeforeSequence || 0;
-    chat.messages = chat.messages.filter((message) => !message.sequence || message.sequence > chat.clearedBeforeSequence);
+    chat.messages = chat.messages.filter(
+      (message) =>
+        !message.sequence || message.sequence > chat.clearedBeforeSequence,
+    );
     chat.status = "аккаунт Маяка";
     chat.bio = peer.bio || "Личный диалог с серверной проверкой участников.";
     if (conversation.lastMessage) {
@@ -770,7 +1042,7 @@ async function openParticipantChat(participantId) {
     const { conversation } = await fetchJson("/api/conversations/direct", {
       method: "POST",
       body: JSON.stringify({ peerUserId: participantPeerId(participant) }),
-      timeout: 3000
+      timeout: 3000,
     });
     const chat = upsertParticipantChat(participant, conversation);
     closeConnectModal();
@@ -795,39 +1067,65 @@ function renderParticipants() {
   }
   if (!connectParticipants) return;
   if (!participants.length) {
-    connectParticipants.innerHTML = '<div class="participant-empty">Когда телефон или второй компьютер откроет эту ссылку, он появится здесь.</div>';
+    connectParticipants.innerHTML =
+      '<div class="participant-empty">Когда телефон или второй компьютер откроет эту ссылку, он появится здесь.</div>';
     return;
   }
-  connectParticipants.innerHTML = participants.map((participant) => {
-    const name = participant.name || "Локальное устройство";
-    const device = participant.deviceName || "Устройство Маяка";
-    const handle = participant.handle || "локальный профиль";
-    const connections = participant.connections > 1 ? ` · ${participant.connections} вкладки` : "";
-    const isSelf = isOwnParticipant(participant);
-    return `
+  connectParticipants.innerHTML = participants
+    .map((participant) => {
+      const name = participant.name || "Локальное устройство";
+      const device = participant.deviceName || "Устройство Маяка";
+      const handle = participant.handle || "локальный профиль";
+      const connections =
+        participant.connections > 1
+          ? ` · ${participant.connections} вкладки`
+          : "";
+      const isSelf = isOwnParticipant(participant);
+      return `
       <div class="participant-item">
-        <span class="participant-avatar">${avatarInnerHtml({ name, avatarUrl: participant.avatarUrl })}</span>
-        <span class="participant-copy">
-          <strong>${escapeHtml(name)}</strong>
-          <p>${escapeHtml(participantLabel(participant))}${escapeHtml(connections)}</p>
-        </span>
+        <button class="participant-profile-trigger" type="button" data-participant-profile="${escapeHtml(participant.id || "")}" aria-label="Открыть профиль ${escapeHtml(name)}">
+          <span class="participant-avatar">${avatarInnerHtml({ name, avatarUrl: participant.avatarUrl })}</span>
+          <span class="participant-copy">
+            <strong>${escapeHtml(name)}</strong>
+            <p>${escapeHtml(participantLabel(participant))}${escapeHtml(connections)}</p>
+          </span>
+        </button>
         <span class="participant-side">
           <span class="participant-status">онлайн</span>
           <button type="button" class="participant-action" data-participant-id="${escapeHtml(participant.id || "")}" ${isSelf ? "disabled" : ""}>${isSelf ? "Это вы" : "Написать"}</button>
         </span>
       </div>
     `;
-  }).join("");
+    })
+    .join("");
 
-  connectParticipants.querySelectorAll("[data-participant-id]").forEach((button) => {
-    button.addEventListener("click", () => openParticipantChat(button.dataset.participantId));
-  });
+  connectParticipants
+    .querySelectorAll("[data-participant-profile]")
+    .forEach((button) => {
+      button.addEventListener("click", () => {
+        const participant = participantById(button.dataset.participantProfile);
+        const user = publicUserFromParticipant(participant);
+        if (user) void openPublicProfile(user);
+      });
+    });
+
+  connectParticipants
+    .querySelectorAll("[data-participant-id]")
+    .forEach((button) => {
+      button.addEventListener("click", () =>
+        openParticipantChat(button.dataset.participantId),
+      );
+    });
 }
 
 function updatePresence(data = {}) {
   realtime.clients = Number(data.clients || 0);
-  realtime.devices = Number(data.devices || data.participants?.length || realtime.clients || 0);
-  realtime.participants = Array.isArray(data.participants) ? data.participants : [];
+  realtime.devices = Number(
+    data.devices || data.participants?.length || realtime.clients || 0,
+  );
+  realtime.participants = Array.isArray(data.participants)
+    ? data.participants
+    : [];
   renderParticipants();
 }
 
@@ -840,9 +1138,17 @@ function setLiveStatus(state, title, text) {
 
   const chat = ensureLiveChat();
   const onlineDevices = realtime.devices || realtime.clients || 1;
-  chat.status = state === "online" ? `онлайн · ${onlineDevices} ${pluralRu(onlineDevices, "устройство", "устройства", "устройств")}` : state === "checking" ? "проверка сервера" : "сервер не подключён";
+  chat.status =
+    state === "online"
+      ? `онлайн · ${onlineDevices} ${pluralRu(onlineDevices, "устройство", "устройства", "устройств")}`
+      : state === "checking"
+        ? "проверка сервера"
+        : "сервер не подключён";
   if (!chat.messages.length) {
-    chat.preview = state === "online" ? "Сервер подключён — можно писать" : "Запустите локальный сервер для живого режима";
+    chat.preview =
+      state === "online"
+        ? "Сервер подключён — можно писать"
+        : "Запустите локальный сервер для живого режима";
     chat.time = state === "online" ? "online" : "offline";
   }
   renderChatList();
@@ -875,7 +1181,10 @@ async function loadConnectInfo() {
     connectUrl.href = info.primaryUrl;
     connectUrl.textContent = info.primaryUrl;
     realtime.mode = info.mode || "local";
-    const roomTitle = realtime.mode === "cloud" ? "Участники и приглашение" : "Локальная комната";
+    const roomTitle =
+      realtime.mode === "cloud"
+        ? "Участники и приглашение"
+        : "Локальная комната";
     $("#connectRoomTitle").textContent = roomTitle;
     $("#connectRoomButton span").textContent = roomTitle;
     $("#connectRoomButton").setAttribute("aria-label", roomTitle);
@@ -890,7 +1199,8 @@ async function openConnectModal() {
   connectModal.hidden = false;
   renderParticipants();
   await loadConnectInfo();
-  if (!realtime.connectUrl) showToast("Не удалось получить адрес локальной комнаты");
+  if (!realtime.connectUrl)
+    showToast("Не удалось получить адрес локальной комнаты");
 }
 
 function closeConnectModal() {
@@ -919,7 +1229,10 @@ async function copyText(value) {
 }
 
 function formatServerTime(value) {
-  return new Intl.DateTimeFormat("ru", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  return new Intl.DateTimeFormat("ru", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 function mapServerMessage(message) {
@@ -931,18 +1244,23 @@ function mapServerMessage(message) {
     direction,
     authorName: message.authorName,
     text: message.text,
-    time: formatServerTime(message.createdAt)
+    time: formatServerTime(message.createdAt),
   };
 }
 
 function chatForServerMessage(serverChatId = LIVE_CHAT_ID, message = null) {
   if (serverChatId === LIVE_CHAT_ID) return ensureLiveChat();
 
-  let chat = chats.find((item) => item.serverChatId === serverChatId || item.id === serverChatId);
+  let chat = chats.find(
+    (item) => item.serverChatId === serverChatId || item.id === serverChatId,
+  );
   if (chat || !message) return chat;
 
   const mapped = mapServerMessage(message);
-  const name = mapped.direction === "out" ? "Локальный диалог" : (message.authorName || "Локальный контакт");
+  const name =
+    mapped.direction === "out"
+      ? "Локальный диалог"
+      : message.authorName || "Локальный контакт";
   chat = {
     id: serverChatId,
     serverChatId,
@@ -956,7 +1274,7 @@ function chatForServerMessage(serverChatId = LIVE_CHAT_ID, message = null) {
     preview: "Новое локальное сообщение",
     time: "",
     unread: 0,
-    messages: []
+    messages: [],
   };
   chats = [chat, ...chats];
   return chat;
@@ -964,22 +1282,30 @@ function chatForServerMessage(serverChatId = LIVE_CHAT_ID, message = null) {
 
 function realtimeEmptyPreview(chat) {
   if (chat.id === LIVE_CHAT_ID) {
-    return realtime.available ? "Сервер подключён — можно писать" : "Запустите локальный сервер для живого режима";
+    return realtime.available
+      ? "Сервер подключён — можно писать"
+      : "Запустите локальный сервер для живого режима";
   }
   return "Личный чат готов — напишите первое сообщение";
 }
 
-function applyServerMessages(serverMessages, { replace = false, chatId = "" } = {}) {
+function applyServerMessages(
+  serverMessages,
+  { replace = false, chatId = "" } = {},
+) {
   const fallbackChatId = chatId || serverMessages[0]?.chatId || LIVE_CHAT_ID;
   const touchedChatIds = new Set();
 
   if (replace) {
-    const replacementTargets = new Set(serverMessages.map((message) => message?.chatId || fallbackChatId));
+    const replacementTargets = new Set(
+      serverMessages.map((message) => message?.chatId || fallbackChatId),
+    );
     if (!replacementTargets.size) replacementTargets.add(fallbackChatId);
     replacementTargets.forEach((serverChatId) => {
       const chat = chatForServerMessage(serverChatId);
       if (chat) {
-        for (const message of chat.messages) if (message.id) realtime.knownMessageIds.delete(message.id);
+        for (const message of chat.messages)
+          if (message.id) realtime.knownMessageIds.delete(message.id);
         chat.messages = [];
         touchedChatIds.add(chat.id);
       }
@@ -1005,7 +1331,12 @@ function applyServerMessages(serverMessages, { replace = false, chatId = "" } = 
     const chat = chatForServerMessage(fallbackChatId);
     if (!chat) return;
     chat.preview = realtimeEmptyPreview(chat);
-    chat.time = chat.id === LIVE_CHAT_ID ? (realtime.available ? "online" : "offline") : "";
+    chat.time =
+      chat.id === LIVE_CHAT_ID
+        ? realtime.available
+          ? "online"
+          : "offline"
+        : "";
     touchedChatIds.add(chat.id);
   }
 
@@ -1022,7 +1353,10 @@ async function fetchJson(url, options = {}) {
   const abort = () => controller.abort();
   if (options.signal?.aborted) abort();
   else options.signal?.addEventListener("abort", abort, { once: true });
-  const waitMs = realtime.mode === "cloud" ? Math.max(options.timeout || 0, 20000) : options.timeout || 5000;
+  const waitMs =
+    realtime.mode === "cloud"
+      ? Math.max(options.timeout || 0, 20000)
+      : options.timeout || 5000;
   const timeout = setTimeout(() => controller.abort(), waitMs);
   try {
     const response = await fetch(url, {
@@ -1030,8 +1364,8 @@ async function fetchJson(url, options = {}) {
       signal: controller.signal,
       headers: {
         "content-type": "application/json",
-        ...(options.headers || {})
-      }
+        ...(options.headers || {}),
+      },
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -1049,12 +1383,19 @@ async function fetchJson(url, options = {}) {
 }
 
 async function loadServerChatHistory(chat) {
-  const serverChatId = chat?.serverChatId || (chat?.id === LIVE_CHAT_ID ? LIVE_CHAT_ID : "");
+  const serverChatId =
+    chat?.serverChatId || (chat?.id === LIVE_CHAT_ID ? LIVE_CHAT_ID : "");
   if (!serverChatId || !realtime.available) return;
 
   try {
-    const snapshot = await fetchJson(`/api/messages?chatId=${encodeURIComponent(serverChatId)}`, { timeout: 1600 });
-    applyServerMessages(snapshot.messages || [], { replace: true, chatId: serverChatId });
+    const snapshot = await fetchJson(
+      `/api/messages?chatId=${encodeURIComponent(serverChatId)}`,
+      { timeout: 1600 },
+    );
+    applyServerMessages(snapshot.messages || [], {
+      replace: true,
+      chatId: serverChatId,
+    });
   } catch {
     if (chat.id !== LIVE_CHAT_ID) showToast("Не удалось обновить личный чат");
   }
@@ -1082,9 +1423,9 @@ async function sendRealtimeMessage(text, chat = activeChat()) {
       method: "POST",
       body: JSON.stringify({
         chatId: chat.serverChatId || chat.id || LIVE_CHAT_ID,
-        text
+        text,
       }),
-      timeout: 3500
+      timeout: 3500,
     });
     applyServerMessages([message]);
     return true;
@@ -1093,10 +1434,17 @@ async function sendRealtimeMessage(text, chat = activeChat()) {
       handleSessionExpired();
       return false;
     }
-    if (error.status && error.status < 500) { showToast(error.message); return false; }
+    if (error.status && error.status < 500) {
+      showToast(error.message);
+      return false;
+    }
     realtime.available = false;
     realtime.connected = false;
-    setLiveStatus("offline", "Сервер потерян", "Сообщение не ушло. Проверьте подключение и попробуйте ещё раз.");
+    setLiveStatus(
+      "offline",
+      "Сервер потерян",
+      "Сообщение не ушло. Проверьте подключение и попробуйте ещё раз.",
+    );
     showToast("Не удалось отправить на сервер");
     return false;
   }
@@ -1128,33 +1476,51 @@ function connectEventStream() {
       if (source !== realtime.source) return;
       syncServerConversations(conversations || []);
       const targets = [ensureLiveChat()];
-      if (activeChat().realtime && activeChatId !== LIVE_CHAT_ID) targets.push(activeChat());
+      if (activeChat().realtime && activeChatId !== LIVE_CHAT_ID)
+        targets.push(activeChat());
       for (const chat of targets) {
         const chatId = chat.serverChatId || chat.id;
-        const history = await fetchJson(`/api/messages?chatId=${encodeURIComponent(chatId)}`);
+        const history = await fetchJson(
+          `/api/messages?chatId=${encodeURIComponent(chatId)}`,
+        );
         if (source !== realtime.source) return;
         applyServerMessages(history.messages || [], { replace: true, chatId });
       }
     } catch (error) {
-      if (error.status === 401) { handleSessionExpired(); return; }
-      showToast("Связь восстановлена, но историю пока не удалось обновить. Откройте чат ещё раз.");
+      if (error.status === 401) {
+        handleSessionExpired();
+        return;
+      }
+      showToast(
+        "Связь восстановлена, но историю пока не удалось обновить. Откройте чат ещё раз.",
+      );
     } finally {
       syncing = false;
       if (source === realtime.source) queued.forEach((apply) => apply());
       queued = [];
     }
     const onlineDevices = realtime.devices || realtime.clients || 1;
-    setLiveStatus("online", "Сервер подключён", `В комнате ${onlineDevices} ${pluralRu(onlineDevices, "устройство", "устройства", "устройств")}. Сообщения идут в реальном времени.`);
+    setLiveStatus(
+      "online",
+      "Сервер подключён",
+      `В комнате ${onlineDevices} ${pluralRu(onlineDevices, "устройство", "устройства", "устройств")}. Сообщения идут в реальном времени.`,
+    );
   });
 
   source.addEventListener("snapshot", (event) => {
     if (syncing || source !== realtime.source) return;
     const data = JSON.parse(event.data);
-    applyServerMessages(data.messages || [], { replace: true, chatId: LIVE_CHAT_ID });
+    applyServerMessages(data.messages || [], {
+      replace: true,
+      chatId: LIVE_CHAT_ID,
+    });
   });
 
   source.addEventListener("message", (event) => {
-    applyEvent((message) => applyServerMessages([message]), JSON.parse(event.data));
+    applyEvent(
+      (message) => applyServerMessages([message]),
+      JSON.parse(event.data),
+    );
   });
 
   source.addEventListener("message_deleted", (event) => {
@@ -1170,17 +1536,26 @@ function connectEventStream() {
     updatePresence(data);
     if (realtime.available) {
       const onlineDevices = realtime.devices || realtime.clients || 1;
-      setLiveStatus("online", "Сервер подключён", `В комнате ${onlineDevices} ${pluralRu(onlineDevices, "устройство", "устройства", "устройств")}. Сообщения идут в реальном времени.`);
+      setLiveStatus(
+        "online",
+        "Сервер подключён",
+        `В комнате ${onlineDevices} ${pluralRu(onlineDevices, "устройство", "устройства", "устройств")}. Сообщения идут в реальном времени.`,
+      );
     }
   });
 
   source.onerror = () => {
     realtime.connected = false;
     if (realtime.available) {
-      setLiveStatus("checking", "Переподключаюсь…", "Поток сообщений временно оборвался, браузер пробует восстановить связь.");
+      setLiveStatus(
+        "checking",
+        "Переподключаюсь…",
+        "Поток сообщений временно оборвался, браузер пробует восстановить связь.",
+      );
     }
     fetchJson("/api/auth/me").catch((error) => {
-      if (source === realtime.source && error.status === 401) handleSessionExpired();
+      if (source === realtime.source && error.status === 401)
+        handleSessionExpired();
     });
   };
 }
@@ -1192,7 +1567,8 @@ function clearAccountChatCache() {
   live.clearedBeforeSequence = 0;
   live.preview = "Войдите, чтобы загрузить историю";
   realtime.knownMessageIds.clear();
-  if (!chats.some((chat) => chat.id === activeChatId)) activeChatId = LIVE_CHAT_ID;
+  if (!chats.some((chat) => chat.id === activeChatId))
+    activeChatId = LIVE_CHAT_ID;
   save();
   renderChatList();
   renderMessages();
@@ -1211,7 +1587,7 @@ function applyAuthenticatedSession({ user, session }) {
     deviceName: session.deviceName || defaultDeviceName(),
     createdAt: user.createdAt || now,
     updatedAt: user.updatedAt || now,
-    serverAccount: true
+    serverAccount: true,
   };
   realtime.authenticated = true;
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
@@ -1226,28 +1602,46 @@ function handleSessionExpired() {
   if (activeSection === "contacts") searchPeople();
   realtime.connected = false;
   realtime.source?.close();
-  setLiveStatus("checking", "Нужно войти в аккаунт", "Сессия устройства завершилась. Войдите снова, чтобы продолжить обмен сообщениями.");
+  setLiveStatus(
+    "checking",
+    "Нужно войти в аккаунт",
+    "Сессия устройства завершилась. Войдите снова, чтобы продолжить обмен сообщениями.",
+  );
   authMode = "login";
   openProfileModal({ required: true });
 }
 
 async function startAuthenticatedRealtime() {
-  const { conversations } = await fetchJson("/api/conversations", { timeout: 2200 });
+  const { conversations } = await fetchJson("/api/conversations", {
+    timeout: 2200,
+  });
   syncServerConversations(conversations || []);
-  const snapshot = await fetchJson(`/api/messages?chatId=${LIVE_CHAT_ID}`, { timeout: 2200 });
-  applyServerMessages(snapshot.messages || [], { replace: true, chatId: LIVE_CHAT_ID });
+  const snapshot = await fetchJson(`/api/messages?chatId=${LIVE_CHAT_ID}`, {
+    timeout: 2200,
+  });
+  applyServerMessages(snapshot.messages || [], {
+    replace: true,
+    chatId: LIVE_CHAT_ID,
+  });
   connectEventStream();
 }
 
 async function initRealtime() {
-  setLiveStatus("checking", "Подключаюсь к серверу…", "Бесплатный сервер после простоя может запускаться около минуты. Подождите немного.");
+  setLiveStatus(
+    "checking",
+    "Подключаюсь к серверу…",
+    "Бесплатный сервер после простоя может запускаться около минуты. Подождите немного.",
+  );
   try {
-    const health = await fetchJson("/api/health", { timeout: hostedPage ? 75000 : 5000 });
+    const health = await fetchJson("/api/health", {
+      timeout: hostedPage ? 75000 : 5000,
+    });
     realtime.available = Boolean(health.ok);
     realtime.requiresAuth = health.auth === "sessions";
     realtime.serverVersion = health.version || "";
     realtime.mode = health.mode || "local";
-    $("#serverModeLabel").textContent = `${realtime.mode === "cloud" ? "Интернет-пилот" : "Локальный сервер"} v${realtime.serverVersion}`;
+    $("#serverModeLabel").textContent =
+      `${realtime.mode === "cloud" ? "Интернет-пилот" : "Локальный сервер"} v${realtime.serverVersion}`;
     realtime.inviteRequired = Boolean(health.inviteRequired);
     updatePresence(health);
     await loadConnectInfo();
@@ -1260,15 +1654,24 @@ async function initRealtime() {
       } catch (error) {
         if (error.status !== 401) throw error;
         realtime.authenticated = false;
-        setLiveStatus("checking", "Сервер готов", "Создайте аккаунт или войдите — после этого откроется живая комната.");
+        setLiveStatus(
+          "checking",
+          "Сервер готов",
+          "Создайте аккаунт или войдите — после этого откроется живая комната.",
+        );
         authMode = profile ? "login" : "register";
         openProfileModal({ required: true });
       }
       return;
     }
 
-    const snapshot = await fetchJson(`/api/messages?chatId=${LIVE_CHAT_ID}`, { timeout: 1600 });
-    applyServerMessages(snapshot.messages || [], { replace: true, chatId: LIVE_CHAT_ID });
+    const snapshot = await fetchJson(`/api/messages?chatId=${LIVE_CHAT_ID}`, {
+      timeout: 1600,
+    });
+    applyServerMessages(snapshot.messages || [], {
+      replace: true,
+      chatId: LIVE_CHAT_ID,
+    });
     connectEventStream();
     if (!profile) openProfileModal({ required: true });
   } catch (error) {
@@ -1276,13 +1679,21 @@ async function initRealtime() {
     realtime.connected = false;
     if (hostedPage) {
       realtime.requiresAuth = true;
-      setLiveStatus("offline", "Не удалось подключиться", "Проверьте интернет. Сервер может запускаться после простоя; попробуем снова через 15 секунд.");
+      setLiveStatus(
+        "offline",
+        "Не удалось подключиться",
+        "Проверьте интернет. Сервер может запускаться после простоя; попробуем снова через 15 секунд.",
+      );
       setTimeout(initRealtime, 15000);
       return;
     }
     realtime.requiresAuth = false;
     setConnectCardUnavailable();
-    setLiveStatus("offline", "Живой сервер не запущен", "Запустите ./script/run_local_chat.sh и откройте http://127.0.0.1:4173.");
+    setLiveStatus(
+      "offline",
+      "Живой сервер не запущен",
+      "Запустите ./script/run_local_chat.sh и откройте http://127.0.0.1:4173.",
+    );
     if (!profile) openProfileModal({ required: true });
   }
 }
@@ -1308,7 +1719,12 @@ function setSection(section) {
   });
   const chatsOnly = section === "chats";
   $(".filter-row").hidden = !chatsOnly;
-  searchInput.placeholder = section === "calls" ? "Поиск звонков" : section === "contacts" ? "Имя или @username" : "Поиск чатов";
+  searchInput.placeholder =
+    section === "calls"
+      ? "Поиск звонков"
+      : section === "contacts"
+        ? "Имя или @username"
+        : "Поиск чатов";
   searchInput.setAttribute("aria-label", searchInput.placeholder);
   if (section === "contacts") searchPeople();
   if (section === "chats") renderChatList();
@@ -1317,7 +1733,11 @@ function setSection(section) {
 function makeInitials(name) {
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (!words.length) return "??";
-  return words.slice(0, 2).map((word) => word[0]).join("").toLocaleUpperCase("ru");
+  return words
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toLocaleUpperCase("ru");
 }
 
 function shortDeviceId() {
@@ -1325,7 +1745,8 @@ function shortDeviceId() {
 }
 
 function clearAvatarDraft() {
-  if (pendingAvatarPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(pendingAvatarPreviewUrl);
+  if (pendingAvatarPreviewUrl.startsWith("blob:"))
+    URL.revokeObjectURL(pendingAvatarPreviewUrl);
   pendingAvatarBlob = null;
   pendingAvatarPreviewUrl = "";
   pendingAvatarRemoval = false;
@@ -1354,37 +1775,101 @@ function fileToImage(file) {
   });
 }
 
-async function resizeAvatar(file) {
+function validateAvatarFile(file) {
   if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) {
     throw new Error("Выберите JPEG, PNG или WebP");
   }
-  if (file.size > 10 * 1024 * 1024) throw new Error("Исходное фото должно быть меньше 10 МБ");
+  if (file.size > 10 * 1024 * 1024)
+    throw new Error("Исходное фото должно быть меньше 10 МБ");
+}
 
-  let source;
-  let release = () => {};
-  if (globalThis.createImageBitmap) {
-    source = await createImageBitmap(file);
-    release = () => source.close();
-  } else {
-    const loaded = await fileToImage(file);
-    source = loaded.image;
-    release = () => URL.revokeObjectURL(loaded.url);
-  }
+function showAvatarCropError(message = "") {
+  const error = $("#avatarCropError");
+  error.textContent = message;
+  error.hidden = !message;
+}
 
+function renderAvatarCrop() {
+  if (!avatarCropDraft) return;
+  const state = avatarCropDraft.crop;
+  avatarCropImage.style.width = `${state.sourceWidth * state.scale}px`;
+  avatarCropImage.style.height = `${state.sourceHeight * state.scale}px`;
+  avatarCropImage.style.transform = `translate(-50%, -50%) translate(${state.panX}px, ${state.panY}px)`;
+  avatarCropZoom.value = String(state.zoom);
+}
+
+function closeAvatarCrop() {
+  avatarCropPointer = null;
+  avatarCropModal.hidden = true;
+  if (avatarCropDraft?.url) URL.revokeObjectURL(avatarCropDraft.url);
+  avatarCropDraft = null;
+  avatarCropImage.removeAttribute("src");
+  avatarCropApply.disabled = false;
+  showAvatarCropError();
+}
+
+async function openAvatarCrop(file) {
+  validateAvatarFile(file);
+  closeAvatarCrop();
+  const loaded = await fileToImage(file);
+  avatarCropImage.src = loaded.url;
+  avatarCropModal.hidden = false;
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  const stageSize = avatarCropStage.getBoundingClientRect().width;
+  const cropViewport = stageSize * 0.86;
+  avatarCropDraft = {
+    image: loaded.image,
+    url: loaded.url,
+    crop: MayakAvatarCrop.create({
+      sourceWidth: loaded.image.naturalWidth,
+      sourceHeight: loaded.image.naturalHeight,
+      viewport: cropViewport,
+    }),
+  };
+  avatarCropZoom.value = "1";
+  showAvatarCropError();
+  renderAvatarCrop();
+  avatarCropStage.focus();
+}
+
+async function applyAvatarCrop() {
+  if (!avatarCropDraft) return;
+  avatarCropApply.disabled = true;
+  showAvatarCropError();
   try {
-    const width = source.naturalWidth || source.width;
-    const height = source.naturalHeight || source.height;
-    const side = Math.min(width, height);
+    const source = MayakAvatarCrop.sourceRect(avatarCropDraft.crop);
     const canvas = document.createElement("canvas");
     canvas.width = 256;
     canvas.height = 256;
     const context = canvas.getContext("2d");
-    context.drawImage(source, (width - side) / 2, (height - side) / 2, side, side, 0, 0, 256, 256);
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", 0.84));
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(
+      avatarCropDraft.image,
+      source.x,
+      source.y,
+      source.size,
+      source.size,
+      0,
+      0,
+      256,
+      256,
+    );
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/webp", 0.86),
+    );
     if (!blob) throw new Error("Не удалось подготовить изображение");
-    return blob;
-  } finally {
-    release();
+    if (pendingAvatarPreviewUrl.startsWith("blob:"))
+      URL.revokeObjectURL(pendingAvatarPreviewUrl);
+    pendingAvatarBlob = blob;
+    pendingAvatarPreviewUrl = URL.createObjectURL(blob);
+    pendingAvatarRemoval = false;
+    closeAvatarCrop();
+    profileAvatarInput.value = "";
+    updateProfilePreview();
+  } catch (error) {
+    showAvatarCropError(error.message || "Не удалось подготовить изображение");
+    avatarCropApply.disabled = false;
   }
 }
 
@@ -1392,7 +1877,8 @@ function blobToDataUrl(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Не удалось сохранить изображение"));
+    reader.onerror = () =>
+      reject(new Error("Не удалось сохранить изображение"));
     reader.readAsDataURL(blob);
   });
 }
@@ -1404,12 +1890,15 @@ async function saveServerAvatarDraft() {
   try {
     const response = await fetch("/api/auth/avatar", {
       method: pendingAvatarRemoval ? "DELETE" : "PUT",
-      headers: pendingAvatarBlob ? { "content-type": pendingAvatarBlob.type || "image/webp" } : {},
+      headers: pendingAvatarBlob
+        ? { "content-type": pendingAvatarBlob.type || "image/webp" }
+        : {},
       body: pendingAvatarBlob || undefined,
-      signal: controller.signal
+      signal: controller.signal,
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    if (!response.ok)
+      throw new Error(payload.error || `HTTP ${response.status}`);
     return payload;
   } finally {
     clearTimeout(timeout);
@@ -1417,16 +1906,23 @@ async function saveServerAvatarDraft() {
 }
 
 function updateProfilePreview() {
-  const loginOnly = realtime.requiresAuth && !realtime.authenticated && authMode === "login";
+  const loginOnly =
+    realtime.requiresAuth && !realtime.authenticated && authMode === "login";
   const name = loginOnly
-    ? (profile?.name || "Вход в Маяк")
-    : (profileNameInput.value.trim() || "Аккаунт Маяка");
-  const handle = normalizeHandle(profileHandleInput.value) || "Username ещё не выбран";
+    ? profile?.name || "Вход в Маяк"
+    : profileNameInput.value.trim() || "Аккаунт Маяка";
+  const handle =
+    normalizeHandle(profileHandleInput.value) || "Username ещё не выбран";
   const deviceName = profileDeviceNameInput.value.trim() || defaultDeviceName();
-  setAvatar($("#profilePreviewAvatar"), { name, avatarUrl: profilePreviewAvatarUrl() });
+  setAvatar($("#profilePreviewAvatar"), {
+    name,
+    avatarUrl: profilePreviewAvatarUrl(),
+  });
   $("#profilePreviewName").textContent = name;
   $("#profilePreviewMeta").textContent = `${handle} · ${deviceName}`;
   profileAvatarRemove.hidden = !profilePreviewAvatarUrl();
+  profileAvatarChoose.querySelector("span").textContent =
+    profilePreviewAvatarUrl() ? "Изменить фото" : "Выбрать фото";
   updateBioCount();
 }
 
@@ -1461,9 +1957,12 @@ function fillProfileForm({ required = false, preserveValues = false } = {}) {
   $("#profileNameField").hidden = loginOnly;
   $("#profileCustomizationFields").hidden = loginOnly;
   $("#profilePasswordField").hidden = !serverAuth || editingAccount;
-  $("#profileInviteField").hidden = !serverAuth || editingAccount || loginOnly || !realtime.inviteRequired;
+  $("#profileInviteField").hidden =
+    !serverAuth || editingAccount || loginOnly || !realtime.inviteRequired;
   profilePasswordInput.required = serverAuth && !editingAccount;
-  profilePasswordInput.autocomplete = loginOnly ? "current-password" : "new-password";
+  profilePasswordInput.autocomplete = loginOnly
+    ? "current-password"
+    : "new-password";
   profileHandleInput.disabled = editingAccount;
   profileLogoutButton.hidden = !editingAccount;
 
@@ -1483,25 +1982,36 @@ function fillProfileForm({ required = false, preserveValues = false } = {}) {
   if (editingAccount) {
     $("#profileEyebrow").textContent = "Аккаунт v0.9";
     $("#profileTitle").textContent = "Ваш профиль";
-    $("#profileSubmitButton").innerHTML = '<svg><use href="#i-lock"/></svg>Сохранить';
-    $("#profileNote").textContent = "Имя хранится на сервере, а это устройство использует отдельную защищённую сессию.";
+    $("#profileSubmitButton").innerHTML =
+      '<svg><use href="#i-lock"/></svg>Сохранить';
+    $("#profileNote").textContent =
+      "Имя хранится на сервере, а это устройство использует отдельную защищённую сессию.";
   } else if (serverAuth && loginOnly) {
     $("#profileEyebrow").textContent = "С возвращением";
     $("#profileTitle").textContent = "Войти в Маяк";
-    $("#profileSubmitButton").innerHTML = '<svg><use href="#i-lock"/></svg>Войти';
-    $("#profileNote").textContent = "Введите тот же username и пароль. Для этого устройства будет создана отдельная сессия.";
+    $("#profileSubmitButton").innerHTML =
+      '<svg><use href="#i-lock"/></svg>Войти';
+    $("#profileNote").textContent =
+      "Введите тот же username и пароль. Для этого устройства будет создана отдельная сессия.";
   } else if (serverAuth) {
     $("#profileEyebrow").textContent = "Первый аккаунт";
     $("#profileTitle").textContent = "Создать аккаунт";
-    $("#profileSubmitButton").innerHTML = '<svg><use href="#i-lock"/></svg>Зарегистрироваться';
-    $("#profileNote").textContent = "Пароль сохраняется на сервере только как scrypt-хеш. Минимальная длина — 8 символов.";
+    $("#profileSubmitButton").innerHTML =
+      '<svg><use href="#i-lock"/></svg>Зарегистрироваться';
+    $("#profileNote").textContent =
+      "Пароль сохраняется на сервере только как scrypt-хеш. Минимальная длина — 8 символов.";
   } else {
-    $("#profileEyebrow").textContent = profile ? "Локальный профиль" : "Демо-режим";
-    $("#profileTitle").textContent = profile ? "Ваш профиль" : "Создать локальный профиль";
+    $("#profileEyebrow").textContent = profile
+      ? "Локальный профиль"
+      : "Демо-режим";
+    $("#profileTitle").textContent = profile
+      ? "Ваш профиль"
+      : "Создать локальный профиль";
     $("#profileSubmitButton").innerHTML = profile
       ? '<svg><use href="#i-lock"/></svg>Сохранить'
       : '<svg><use href="#i-lock"/></svg>Создать профиль';
-    $("#profileNote").textContent = "Сервер не запущен, поэтому профиль сохранится только в этом браузере.";
+    $("#profileNote").textContent =
+      "Сервер не запущен, поэтому профиль сохранится только в этом браузере.";
   }
 
   showProfileError();
@@ -1514,19 +2024,25 @@ function openProfileModal({ required = false } = {}) {
   fillProfileForm({ required: required || authRequired || !profile });
   profileModal.hidden = false;
   requestAnimationFrame(() => {
-    const loginOnly = realtime.requiresAuth && !realtime.authenticated && authMode === "login";
+    const loginOnly =
+      realtime.requiresAuth && !realtime.authenticated && authMode === "login";
     (loginOnly ? profileHandleInput : profileNameInput).focus();
   });
 }
 
 function closeProfileModal() {
-  const missingIdentity = realtime.requiresAuth ? !realtime.authenticated : !profile;
+  const missingIdentity = realtime.requiresAuth
+    ? !realtime.authenticated
+    : !profile;
   if (profileModal.dataset.required === "true" && missingIdentity) return;
   profileModal.hidden = true;
 }
 
 async function saveProfileFromForm() {
-  if (hostedPage && !realtime.available) { showProfileError("Подождите подключения к серверу и повторите попытку"); return false; }
+  if (hostedPage && !realtime.available) {
+    showProfileError("Подождите подключения к серверу и повторите попытку");
+    return false;
+  }
   const name = profileNameInput.value.trim().replace(/\s+/g, " ").slice(0, 60);
   const bio = profileBioInput.value.trim().slice(0, 280);
   const serverAuth = realtime.available && realtime.requiresAuth;
@@ -1547,7 +2063,9 @@ async function saveProfileFromForm() {
 
   if (serverAuth) {
     const password = profilePasswordInput.value;
-    const deviceName = (profileDeviceNameInput.value.trim() || defaultDeviceName()).slice(0, 60);
+    const deviceName = (
+      profileDeviceNameInput.value.trim() || defaultDeviceName()
+    ).slice(0, 60);
     if (!editingAccount && password.length < 8) {
       showProfileError("Пароль должен содержать не менее 8 символов");
       profilePasswordInput.focus();
@@ -1567,24 +2085,42 @@ async function saveProfileFromForm() {
         ? { name, bio, deviceName }
         : loginOnly
           ? { handle, password, deviceId, deviceName }
-          : { name, handle, password, bio, deviceId, deviceName, inviteCode: $("#profileInvite").value.trim() };
+          : {
+              name,
+              handle,
+              password,
+              bio,
+              deviceId,
+              deviceName,
+              inviteCode: $("#profileInvite").value.trim(),
+            };
       const auth = await fetchJson(endpoint, {
         method: editingAccount ? "PATCH" : "POST",
         body: JSON.stringify(payload),
-        timeout: 7000
+        timeout: 7000,
       });
       applyAuthenticatedSession(auth);
       $("#profileInvite").value = "";
       profilePasswordInput.value = "";
       if (!loginOnly) {
         const avatarResult = await saveServerAvatarDraft();
-        if (avatarResult?.user) applyAuthenticatedSession({ user: avatarResult.user, session: auth.session });
+        if (avatarResult?.user)
+          applyAuthenticatedSession({
+            user: avatarResult.user,
+            session: auth.session,
+          });
       }
       clearAvatarDraft();
       profileModal.hidden = true;
       if (!editingAccount) await startAuthenticatedRealtime();
       else connectEventStream();
-      showToast(editingAccount ? "Профиль сохранён" : loginOnly ? "Вход выполнен" : "Аккаунт создан");
+      showToast(
+        editingAccount
+          ? "Профиль сохранён"
+          : loginOnly
+            ? "Вход выполнен"
+            : "Аккаунт создан",
+      );
       return true;
     } catch (error) {
       if (realtime.authenticated) fillProfileForm({ preserveValues: true });
@@ -1608,9 +2144,11 @@ async function saveProfileFromForm() {
     initials: makeInitials(name),
     bio,
     avatarUrl,
-    deviceName: (profileDeviceNameInput.value.trim() || defaultDeviceName()).slice(0, 60),
+    deviceName: (
+      profileDeviceNameInput.value.trim() || defaultDeviceName()
+    ).slice(0, 60),
     createdAt: profile?.createdAt || now,
-    updatedAt: now
+    updatedAt: now,
   };
 
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
@@ -1627,8 +2165,17 @@ async function saveProfileFromForm() {
 
 async function logoutAccount() {
   try {
-    await fetchJson("/api/auth/logout", { method: "POST", body: "{}", timeout: 2500 });
-  } catch { showToast("Не удалось завершить сессию на сервере. Проверьте связь и повторите выход."); return; }
+    await fetchJson("/api/auth/logout", {
+      method: "POST",
+      body: "{}",
+      timeout: 2500,
+    });
+  } catch {
+    showToast(
+      "Не удалось завершить сессию на сервере. Проверьте связь и повторите выход.",
+    );
+    return;
+  }
   realtime.source?.close();
   realtime.connected = false;
   realtime.authenticated = false;
@@ -1638,10 +2185,13 @@ async function logoutAccount() {
   renderProfileChrome();
   authMode = "login";
   profileModal.hidden = true;
-  setLiveStatus("checking", "Вы вышли из аккаунта", "Войдите снова, чтобы получать и отправлять сообщения.");
+  setLiveStatus(
+    "checking",
+    "Вы вышли из аккаунта",
+    "Войдите снова, чтобы получать и отправлять сообщения.",
+  );
   openProfileModal({ required: true });
 }
-
 
 function bytesToBase64(bytes) {
   return btoa(String.fromCharCode(...bytes));
@@ -1657,14 +2207,14 @@ async function deriveOfflineKey(secret, salt) {
     new TextEncoder().encode(secret),
     "PBKDF2",
     false,
-    ["deriveKey"]
+    ["deriveKey"],
   );
   return crypto.subtle.deriveKey(
     { name: "PBKDF2", salt, iterations: 180000, hash: "SHA-256" },
     material,
     { name: "AES-GCM", length: 256 },
     false,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt"],
   );
 }
 
@@ -1673,7 +2223,9 @@ async function encryptOfflinePayload(payload, secret) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await deriveOfflineKey(secret, salt);
   const encoded = new TextEncoder().encode(JSON.stringify(payload));
-  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded));
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded),
+  );
   return {
     type: "mayak.offline.packet",
     version: 1,
@@ -1681,7 +2233,7 @@ async function encryptOfflinePayload(payload, secret) {
     hint: {
       to: payload.to,
       relay: "Можно передавать через посредников: содержимое зашифровано.",
-      ttl: "7d"
+      ttl: "7d",
     },
     crypto: {
       kdf: "PBKDF2-SHA256",
@@ -1689,20 +2241,28 @@ async function encryptOfflinePayload(payload, secret) {
       iterations: 180000,
       salt: bytesToBase64(salt),
       iv: bytesToBase64(iv),
-      ciphertext: bytesToBase64(ciphertext)
-    }
+      ciphertext: bytesToBase64(ciphertext),
+    },
   };
 }
 
 async function decryptOfflinePacket(packet, secret) {
-  if (!packet || packet.type !== "mayak.offline.packet" || packet.version !== 1) {
+  if (
+    !packet ||
+    packet.type !== "mayak.offline.packet" ||
+    packet.version !== 1
+  ) {
     throw new Error("bad packet");
   }
   const salt = base64ToBytes(packet.crypto.salt);
   const iv = base64ToBytes(packet.crypto.iv);
   const ciphertext = base64ToBytes(packet.crypto.ciphertext);
   const key = await deriveOfflineKey(secret, salt);
-  const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
+  const plaintext = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    key,
+    ciphertext,
+  );
   return JSON.parse(new TextDecoder().decode(plaintext));
 }
 
@@ -1732,13 +2292,13 @@ function addImportedPacketToChat(payload) {
     time: "",
     unread: 0,
     verified: true,
-    messages: []
+    messages: [],
   };
   const time = currentTime();
   chat.messages.push({
     direction: "in",
     text: `${name} → ${payload.to}\n${payload.text}`,
-    time
+    time,
   });
   chat.preview = `Пакет: ${payload.text}`;
   chat.time = time;
@@ -1776,7 +2336,9 @@ searchInput.addEventListener("keydown", (event) => {
   }
 });
 $("#peopleSearchRetry").addEventListener("click", () => peopleSearch.retry());
-$("#peopleSearchLogin").addEventListener("click", () => openProfileModal({ required: true }));
+$("#peopleSearchLogin").addEventListener("click", () =>
+  openProfileModal({ required: true }),
+);
 document.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
@@ -1787,13 +2349,19 @@ document.addEventListener("keydown", (event) => {
 document.querySelectorAll(".filter").forEach((button) => {
   button.addEventListener("click", () => {
     activeFilter = button.dataset.filter;
-    document.querySelectorAll(".filter").forEach((item) => item.classList.toggle("active", item === button));
+    document
+      .querySelectorAll(".filter")
+      .forEach((item) => item.classList.toggle("active", item === button));
     renderChatList();
   });
 });
 
 document.querySelectorAll(".theme-toggle").forEach((button) => {
-  button.addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
+  button.addEventListener("click", () =>
+    setTheme(
+      document.documentElement.dataset.theme === "dark" ? "light" : "dark",
+    ),
+  );
 });
 
 profileButtons.forEach((button) => {
@@ -1824,21 +2392,86 @@ profileAvatarInput.addEventListener("change", async () => {
   profileAvatarChoose.disabled = true;
   showProfileError();
   try {
-    const resized = await resizeAvatar(file);
-    if (pendingAvatarPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(pendingAvatarPreviewUrl);
-    pendingAvatarBlob = resized;
-    pendingAvatarPreviewUrl = URL.createObjectURL(resized);
-    pendingAvatarRemoval = false;
-    updateProfilePreview();
+    await openAvatarCrop(file);
   } catch (error) {
     showProfileError(error.message || "Не удалось подготовить изображение");
+    profileAvatarInput.value = "";
   } finally {
     profileAvatarChoose.disabled = false;
   }
 });
 
+avatarCropZoom.addEventListener("input", () => {
+  if (!avatarCropDraft) return;
+  avatarCropDraft.crop = MayakAvatarCrop.setZoom(
+    avatarCropDraft.crop,
+    Number(avatarCropZoom.value),
+  );
+  renderAvatarCrop();
+});
+
+avatarCropStage.addEventListener("pointerdown", (event) => {
+  if (!avatarCropDraft) return;
+  avatarCropPointer = {
+    id: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+  };
+  avatarCropStage.setPointerCapture(event.pointerId);
+});
+
+avatarCropStage.addEventListener("pointermove", (event) => {
+  if (!avatarCropDraft || avatarCropPointer?.id !== event.pointerId) return;
+  avatarCropDraft.crop = MayakAvatarCrop.move(
+    avatarCropDraft.crop,
+    event.clientX - avatarCropPointer.x,
+    event.clientY - avatarCropPointer.y,
+  );
+  avatarCropPointer.x = event.clientX;
+  avatarCropPointer.y = event.clientY;
+  renderAvatarCrop();
+});
+
+for (const eventName of ["pointerup", "pointercancel"]) {
+  avatarCropStage.addEventListener(eventName, (event) => {
+    if (avatarCropPointer?.id === event.pointerId) avatarCropPointer = null;
+  });
+}
+
+avatarCropStage.addEventListener("keydown", (event) => {
+  if (!avatarCropDraft) return;
+  const movement = {
+    ArrowLeft: [6, 0],
+    ArrowRight: [-6, 0],
+    ArrowUp: [0, 6],
+    ArrowDown: [0, -6],
+  }[event.key];
+  if (!movement) return;
+  event.preventDefault();
+  avatarCropDraft.crop = MayakAvatarCrop.move(
+    avatarCropDraft.crop,
+    ...movement,
+  );
+  renderAvatarCrop();
+});
+
+document.querySelectorAll("[data-avatar-crop-close]").forEach((button) => {
+  button.addEventListener("click", () => {
+    closeAvatarCrop();
+    profileAvatarInput.value = "";
+  });
+});
+avatarCropApply.addEventListener("click", () => void applyAvatarCrop());
+avatarCropModal.addEventListener("click", (event) => {
+  if (event.target === avatarCropModal) {
+    closeAvatarCrop();
+    profileAvatarInput.value = "";
+  }
+});
+
 profileAvatarRemove.addEventListener("click", () => {
-  if (pendingAvatarPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(pendingAvatarPreviewUrl);
+  if (pendingAvatarPreviewUrl.startsWith("blob:"))
+    URL.revokeObjectURL(pendingAvatarPreviewUrl);
   pendingAvatarBlob = null;
   pendingAvatarPreviewUrl = "";
   pendingAvatarRemoval = Boolean(profile?.avatarUrl);
@@ -1861,6 +2494,30 @@ profileForm.addEventListener("submit", (event) => {
 
 profileLogoutButton.addEventListener("click", () => void logoutAccount());
 
+for (const button of [
+  $("#headerAvatar"),
+  $("#personHeading"),
+  $("#profileInfoButton"),
+  $("#detailsProfileButton"),
+]) {
+  button.addEventListener("click", openActiveChatProfile);
+}
+
+document.querySelectorAll("[data-public-profile-close]").forEach((button) => {
+  button.addEventListener("click", closePublicProfile);
+});
+publicProfileModal.addEventListener("click", (event) => {
+  if (event.target === publicProfileModal) closePublicProfile();
+});
+publicProfileMessage.addEventListener("click", () => {
+  const user = viewedUser;
+  if (!user) return;
+  closePublicProfile();
+  const chat = chats.find((item) => item.peer?.profileId === user.id);
+  if (chat) openChat(chat.id);
+  else void openSearchedUser(user);
+});
+
 document.querySelectorAll("[data-section]").forEach((button) => {
   button.addEventListener("click", () => setSection(button.dataset.section));
 });
@@ -1871,7 +2528,9 @@ $(".compose-button").addEventListener("click", () => {
   searchInput.focus();
 });
 $("#showRoomParticipants").addEventListener("click", openConnectModal);
-$(".attach-button").addEventListener("click", () => showToast("Фото, видео и файлы добавим на следующем этапе"));
+$(".attach-button").addEventListener("click", () =>
+  showToast("Фото, видео и файлы добавим на следующем этапе"),
+);
 $(".emoji-button").addEventListener("click", () => {
   messageInput.value += ["🙂", "✨", "👍", "🔥"][Math.floor(Math.random() * 4)];
   messageInput.focus();
@@ -1905,20 +2564,36 @@ confirmForm.addEventListener("submit", async (event) => {
   }
 });
 document.addEventListener("click", (event) => {
-  if (!chatActionsMenu.hidden && !event.target.closest(".chat-actions-wrap")) closeChatActions();
-  if (!messageActionsMenu.hidden && !event.target.closest("#messageActionsMenu") && !event.target.closest("[data-message-action]")) {
+  if (!chatActionsMenu.hidden && !event.target.closest(".chat-actions-wrap"))
+    closeChatActions();
+  if (
+    !messageActionsMenu.hidden &&
+    !event.target.closest("#messageActionsMenu") &&
+    !event.target.closest("[data-message-action]")
+  ) {
     closeMessageActions();
   }
 });
-document.querySelectorAll(".header-actions .icon-button:not(#chatActionsButton), .profile-actions button").forEach((button) => {
-  button.addEventListener("click", () => showToast("Этот раздел скоро появится"));
-});
+document
+  .querySelectorAll(
+    ".header-actions .icon-button:not(#chatActionsButton), .profile-actions button",
+  )
+  .forEach((button) => {
+    button.addEventListener("click", () =>
+      showToast("Этот раздел скоро появится"),
+    );
+  });
 connectRoomButton.addEventListener("click", openConnectModal);
 $("#copyConnectUrl").addEventListener("click", async () => {
-  if (!realtime.connectUrl) return showToast("Сначала запустите локальный сервер");
+  if (!realtime.connectUrl)
+    return showToast("Сначала запустите локальный сервер");
   const copied = await copyText(realtime.connectUrl);
   if (!copied) selectConnectUrl();
-  showToast(copied ? "Ссылка для телефона скопирована" : "Ссылка выделена — скопируйте вручную");
+  showToast(
+    copied
+      ? "Ссылка для телефона скопирована"
+      : "Ссылка выделена — скопируйте вручную",
+  );
 });
 $("#refreshConnectInfo").addEventListener("click", async () => {
   await loadConnectInfo();
@@ -1942,16 +2617,20 @@ offlinePacketForm.addEventListener("submit", async (event) => {
   const to = $("#offlineTo").value.trim();
   const secret = $("#offlineKey").value.trim();
   const text = $("#offlineMessage").value.trim();
-  if (!to || !secret || !text) return showToast("Заполните получателя, ключ и сообщение");
+  if (!to || !secret || !text)
+    return showToast("Заполните получателя, ключ и сообщение");
   if (!crypto.subtle) return showToast("В этом браузере недоступна Web Crypto");
-  const packet = await encryptOfflinePayload({
-    id: `msg-${Date.now()}`,
-    fromName: currentAuthorName(),
-    to,
-    text,
-    createdAt: new Date().toISOString(),
-    hops: []
-  }, secret);
+  const packet = await encryptOfflinePayload(
+    {
+      id: `msg-${Date.now()}`,
+      fromName: currentAuthorName(),
+      to,
+      text,
+      createdAt: new Date().toISOString(),
+      hops: [],
+    },
+    secret,
+  );
   $("#offlinePacketOutput").value = JSON.stringify(packet, null, 2);
   showToast("Пакет зашифрован");
 });
@@ -1998,7 +2677,9 @@ window.addEventListener("popstate", (event) => {
   appShell.classList.remove("chat-open");
 });
 
-const preferredTheme = localStorage.getItem("mayak-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+const preferredTheme =
+  localStorage.getItem("mayak-theme") ||
+  (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 setTheme(preferredTheme);
 setSection(activeSection);
 renderProfileChrome();

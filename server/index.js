@@ -1147,6 +1147,29 @@ async function main() {
       return;
     }
 
+    const publicProfileMatch = url.pathname.match(/^\/api\/users\/([^/]+)$/);
+    if (req.method === "GET" && publicProfileMatch) {
+      const auth = await requireAuth(req);
+      limiter.check(`user-profile:${auth.user.id}`, 120, 60000);
+      let userId;
+      try {
+        userId = decodeURIComponent(publicProfileMatch[1]);
+      } catch {
+        throw new ApiError(
+          400,
+          "Некорректный ID пользователя",
+          "invalid_user_id",
+        );
+      }
+      const user = await database
+        .prepare("SELECT * FROM users WHERE id = ?")
+        .get(userId);
+      if (!user)
+        throw new ApiError(404, "Пользователь не найден", "user_not_found");
+      sendJson(res, 200, { user: publicUser(user) });
+      return;
+    }
+
     if (req.method === "POST" && url.pathname === "/api/auth/logout") {
       const token = requestToken(req);
       const session = token
