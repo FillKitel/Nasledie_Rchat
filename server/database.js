@@ -87,6 +87,10 @@ async function openDatabase({
     const { DatabaseSync, backup } = require("node:sqlite");
     fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
     sqlite = new DatabaseSync(file);
+    // SQLite's built-in LOWER only folds ASCII; keep name search Unicode-aware.
+    sqlite.function("unicode_lower", { deterministic: true }, (value) =>
+      value === null ? null : String(value).toLocaleLowerCase("ru"),
+    );
     sqlite.exec(
       "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;",
     );

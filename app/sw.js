@@ -1,5 +1,5 @@
-const CACHE = "mayak-shell-v17";
-const ASSETS = ["./", "./index.html", "./styles.css", "./chat-state.js?v=17", "./app.js?v=17", "./styles.css?v=17", "./icon.svg", "./manifest.webmanifest"];
+const CACHE = "mayak-shell-v18";
+const ASSETS = ["./", "./index.html", "./styles.css", "./chat-state.js?v=18", "./user-search.js?v=18", "./app.js?v=18", "./styles.css?v=18", "./icon.svg", "./manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));

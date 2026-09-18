@@ -9,7 +9,7 @@
     <title>Маяк — мессенджер</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=17" />
+    <link rel="stylesheet" href="styles.css?v=18" />
   </head>
   <body>
     <svg class="svg-sprite" aria-hidden="true">
@@ -62,7 +62,7 @@
         </header>
         <label class="search-field">
           <svg><use href="#i-search"/></svg>
-          <input id="searchInput" type="search" placeholder="Поиск" autocomplete="off" />
+          <input id="searchInput" type="search" placeholder="Поиск чатов" aria-label="Поиск чатов" autocomplete="off" maxlength="60" />
           <kbd>⌘ K</kbd>
         </label>
         <div class="filter-row" role="tablist">
@@ -92,9 +92,15 @@
           <div class="side-panel content-panel" data-section-panel="contacts" aria-label="Контакты">
             <div class="panel-title">
               <span><svg><use href="#i-contacts"/></svg></span>
-              <div><strong>Люди</strong><p>Контакты, статусы и быстрый старт диалога</p></div>
+              <div><strong>Найти человека</strong><p>По имени или @username — даже если он офлайн</p></div>
             </div>
-            <button class="contact-card" id="showRoomParticipants" type="button"><span class="avatar logo-avatar"><svg><use href="#i-contacts"/></svg></span><span><strong>Участники живого чата</strong><p>Выберите человека, чтобы написать лично</p></span></button>
+            <p class="people-search-status" id="peopleSearchStatus" role="status" aria-live="polite">Введите минимум 2 символа в поиске выше.</p>
+            <div class="people-search-results" id="peopleSearchResults" role="list" aria-label="Найденные пользователи" aria-busy="false"></div>
+            <button class="people-search-action" id="peopleSearchRetry" type="button" hidden>Повторить поиск</button>
+            <button class="people-search-action" id="peopleSearchLogin" type="button" hidden>Войти в аккаунт</button>
+            <div class="people-room-link">
+              <button class="contact-card" id="showRoomParticipants" type="button"><span class="avatar logo-avatar"><svg><use href="#i-contacts"/></svg></span><span><strong>Сейчас в живом чате</strong><p>Посмотреть подключённые устройства</p></span></button>
+            </div>
           </div>
         </div>
         <nav class="mobile-tabs" aria-label="Мобильная навигация">
@@ -292,7 +298,8 @@
     </div>
 
     <div class="toast" id="toast" role="status"></div>
-    <script src="chat-state.js?v=17" defer></script>
-    <script src="app.js?v=17" defer></script>
+    <script src="chat-state.js?v=18" defer></script>
+    <script src="user-search.js?v=18" defer></script>
+    <script src="app.js?v=18" defer></script>
   </body>
 </html>

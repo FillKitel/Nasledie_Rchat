@@ -201,6 +201,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-lineca
 .search-field input::placeholder { color: var(--muted); }
 .search-field kbd { border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; background: var(--surface); color: var(--muted); font-size: 10px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
 .filter-row { display: flex; gap: 4px; padding: 14px 20px 10px; }
+.filter-row[hidden] { display: none; }
 .filter { border: 0; border-radius: 10px; padding: 7px 10px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 650; cursor: pointer; }
 .filter span { display: inline-grid; min-width: 18px; height: 18px; margin-left: 4px; place-items: center; border-radius: 6px; background: var(--surface-soft); font-size: 9px; }
 .filter.active { color: var(--accent); background: var(--accent-soft); }
@@ -385,6 +386,19 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-lineca
 .call-card p,
 .contact-card p { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
 .contact-card .online-dot { flex: 0 0 auto; }
+.people-search-status { margin: 12px 10px 16px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.side-panel[data-section-panel="contacts"] { padding-top: 16px; }
+.people-search-status[data-error="true"] { color: var(--text); }
+.people-search-results { display: grid; gap: 4px; }
+.people-search-result { grid-template-columns: 44px minmax(0, 1fr) auto; }
+.people-search-result .avatar { width: 44px; height: 44px; border-radius: 15px; font-size: 15px; }
+.people-search-result strong, .people-search-result p { overflow-wrap: anywhere; }
+.people-search-result strong { line-height: 1.35; }
+.people-search-result .people-write { color: var(--accent); font-size: 12px; font-weight: 700; }
+.people-search-result:disabled { opacity: .6; cursor: wait; }
+.people-search-result:focus-visible, .people-search-action:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.people-search-action { margin: 0 10px 16px; border: 0; border-radius: 12px; padding: 12px 16px; background: var(--accent-soft); color: var(--accent); font-weight: 700; cursor: pointer; }
+.people-room-link { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 10px; }
 .add-contact { color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 64%, transparent); }
 .add-contact .avatar svg { width: 20px; color: white; }
 

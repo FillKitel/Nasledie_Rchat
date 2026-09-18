@@ -1177,24 +1177,28 @@ async function main() {
 
     if (req.method === "GET" && url.pathname === "/api/users") {
       const auth = await requireAuth(req);
-      const query = normalizeHandle(url.searchParams.get("query"));
+      limiter.check(`user-search:${auth.user.id}`, 60, 60000);
+      const query = safeText(url.searchParams.get("query"), "", 64)
+        .replace(/^@+/, "")
+        .slice(0, 60)
+        .toLocaleLowerCase("ru");
       if (query.length < 2) {
         sendJson(res, 200, { users: [] });
         return;
       }
+      // Treat %, _ and ! as literal input, never SQL pattern wildcards.
+      const pattern = `%${query.replace(/[!%_]/g, "!$&")}%`;
+      const lower = database.kind === "sqlite" ? "unicode_lower" : "LOWER";
       const users = await database
         .prepare(
           `
-      SELECT * FROM users
-      WHERE id != ? AND (handle LIKE ? OR display_name LIKE ?)
-      ORDER BY handle ASC LIMIT 20
+      SELECT id, handle, display_name, bio, avatar_mime, avatar_updated_at,
+             created_at, updated_at FROM users
+      WHERE id != ? AND (handle LIKE ? ESCAPE '!' OR ${lower}(display_name) LIKE ? ESCAPE '!')
+      ORDER BY CASE WHEN handle = ? THEN 0 ELSE 1 END, handle ASC LIMIT 20
     `,
         )
-        .all(
-          auth.user.id,
-          `%${query}%`,
-          `%${safeText(url.searchParams.get("query"), "", 60)}%`,
-        );
+        .all(auth.user.id, pattern, pattern, query);
       sendJson(res, 200, { users: users.map(publicUser) });
       return;
     }

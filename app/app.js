@@ -161,6 +161,16 @@ const messages = $("#messages");
 const messageArea = $("#messageArea");
 const messageInput = $("#messageInput");
 const searchInput = $("#searchInput");
+const peopleSearchResults = $("#peopleSearchResults");
+let peopleViewRevision = 0;
+let openingUserId = "";
+const peopleSearch = MayakUserSearch.createSearch({
+  search: async (query, signal) => {
+    const { users } = await fetchJson(`/api/users?query=${encodeURIComponent(query)}`, { signal });
+    return users;
+  },
+  onChange: renderPeopleSearch
+});
 const toast = $("#toast");
 const offlineModal = $("#offlineModal");
 const offlinePacketForm = $("#offlinePacketForm");
@@ -363,7 +373,6 @@ function openChat(id) {
   closeChatActions();
   closeMessageActions();
   activeChatId = id;
-  activeSection = "chats";
   chat.unread = 0;
   save();
   setSection("chats");
@@ -602,6 +611,76 @@ function participantById(id) {
   return realtime.participants.find((participant) => participant.id === id);
 }
 
+function renderPeopleSearch() {
+  const state = peopleSearch.getState();
+  const status = $("#peopleSearchStatus");
+  const authenticated = realtime.authenticated;
+  const failed = authenticated && state.status === "error";
+  $("#peopleSearchRetry").hidden = !failed || state.error?.status === 401;
+  $("#peopleSearchLogin").hidden = authenticated && state.error?.status !== 401;
+  status.dataset.error = String(failed);
+  status.textContent = !authenticated || state.error?.status === 401
+    ? "Войдите в аккаунт, чтобы искать людей и писать им."
+    : state.status === "idle" ? "Введите минимум 2 символа в поиске выше."
+    : state.status === "loading" ? "Ищем пользователей…"
+    : failed ? (state.error?.status === 429 ? "Слишком много запросов. Подождите минуту и повторите поиск." : "Не удалось выполнить поиск. Проверьте подключение и попробуйте ещё раз.")
+    : state.users.length ? (state.users.length === 20 ? "Показаны первые 20. Уточните имя или @username." : `Найдено: ${state.users.length}. Выберите человека, чтобы написать.`)
+    : "Никого не нашли. Проверьте имя или попросите у человека его @username.";
+  peopleSearchResults.setAttribute("aria-busy", String(authenticated && state.status === "loading"));
+  peopleSearchResults.replaceChildren();
+  if (!authenticated || state.status !== "ready") return;
+  for (const user of state.users) {
+    const item = document.createElement("div");
+    item.setAttribute("role", "listitem");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "contact-card people-search-result";
+    button.disabled = Boolean(openingUserId);
+    button.setAttribute("aria-label", `Написать: ${user.name} ${user.handle}`);
+    button.innerHTML = `<span class="avatar logo-avatar"></span><span><strong>${escapeHtml(user.name)}</strong><p>${escapeHtml(user.handle)}</p></span><span class="people-write">${openingUserId === user.id ? "Открываем…" : "Написать"}</span>`;
+    setAvatar(button.querySelector(".avatar"), user);
+    button.addEventListener("click", () => void openSearchedUser(user));
+    item.append(button);
+    peopleSearchResults.append(item);
+  }
+}
+
+function searchPeople() {
+  peopleViewRevision++;
+  openingUserId = "";
+  peopleSearch.setQuery(realtime.authenticated ? searchInput.value : "");
+}
+
+async function openSearchedUser(user) {
+  if (openingUserId) return;
+  const revision = peopleViewRevision;
+  const accountId = profile?.id;
+  openingUserId = user.id;
+  renderPeopleSearch();
+  try {
+    const { conversation } = await fetchJson("/api/conversations/direct", {
+      method: "POST",
+      body: JSON.stringify({ peerUserId: user.id })
+    });
+    if (revision !== peopleViewRevision || accountId !== profile?.id || !realtime.authenticated) return;
+    const chat = upsertParticipantChat({ ...user, profileId: user.id }, conversation);
+    // A newly opened dialog must remain visible even after filtering unread chats.
+    activeFilter = "all";
+    document.querySelectorAll(".filter").forEach((button) => button.classList.toggle("active", button.dataset.filter === "all"));
+    searchInput.blur();
+    openChat(chat.id);
+  } catch (error) {
+    if (revision !== peopleViewRevision || accountId !== profile?.id) return;
+    if (error.status === 401) handleSessionExpired();
+    else showToast(error.message || "Не удалось открыть диалог. Попробуйте ещё раз.");
+  } finally {
+    if (revision === peopleViewRevision) {
+      openingUserId = "";
+      renderPeopleSearch();
+    }
+  }
+}
+
 function upsertParticipantChat(participant, conversation) {
   const serverChatId = conversation.id;
   const peer = conversation.peer || {};
@@ -621,11 +700,11 @@ function upsertParticipantChat(participant, conversation) {
       initials: makeInitials(name),
       avatar: "logo-avatar",
       avatarUrl,
-      status: "локальная сеть · онлайн",
+      status: "аккаунт Маяка",
       handle,
-      bio: bio || `Личный чат с ${device}. Работает через локальный сервер, пока устройства видят одну сеть.`,
+      bio: bio || "Личный диалог. Получатель увидит сообщения, когда подключится к Маяку.",
       preview: "Личный чат готов — напишите первое сообщение",
-      time: "online",
+      time: "",
       unread: 0,
       messages: [],
       peer: {
@@ -641,9 +720,9 @@ function upsertParticipantChat(participant, conversation) {
   chat.name = name;
   chat.initials = makeInitials(name);
   chat.avatarUrl = avatarUrl;
-  chat.status = "локальная сеть · онлайн";
+  chat.status = "аккаунт Маяка";
   chat.handle = handle;
-  chat.bio = bio || `Личный чат с ${device}. Работает через локальный сервер, пока устройства видят одну сеть.`;
+  chat.bio = bio || "Личный диалог. Получатель увидит сообщения, когда подключится к Маяку.";
   chat.peer = {
     id: participant.id,
     profileId: participant.profileId,
@@ -682,7 +761,7 @@ function syncServerConversations(serverConversations = []) {
     } else {
       chat.messages = [];
       chat.preview = realtimeEmptyPreview(chat);
-      chat.time = realtime.available ? "online" : "offline";
+      chat.time = "";
     }
   }
   save();
@@ -937,7 +1016,7 @@ function applyServerMessages(serverMessages, { replace = false, chatId = "" } = 
     const chat = chatForServerMessage(fallbackChatId);
     if (!chat) return;
     chat.preview = realtimeEmptyPreview(chat);
-    chat.time = realtime.available ? "online" : "offline";
+    chat.time = chat.id === LIVE_CHAT_ID ? (realtime.available ? "online" : "offline") : "";
     touchedChatIds.add(chat.id);
   }
 
@@ -951,6 +1030,9 @@ function applyServerMessages(serverMessages, { replace = false, chatId = "" } = 
 
 async function fetchJson(url, options = {}) {
   const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (options.signal?.aborted) abort();
+  else options.signal?.addEventListener("abort", abort, { once: true });
   const waitMs = realtime.mode === "cloud" ? Math.max(options.timeout || 0, 20000) : options.timeout || 5000;
   const timeout = setTimeout(() => controller.abort(), waitMs);
   try {
@@ -973,6 +1055,7 @@ async function fetchJson(url, options = {}) {
     return payload;
   } finally {
     clearTimeout(timeout);
+    options.signal?.removeEventListener("abort", abort);
   }
 }
 
@@ -1151,6 +1234,7 @@ function applyAuthenticatedSession({ user, session }) {
 
 function handleSessionExpired() {
   realtime.authenticated = false;
+  if (activeSection === "contacts") searchPeople();
   realtime.connected = false;
   realtime.source?.close();
   setLiveStatus("checking", "Нужно войти в аккаунт", "Сессия устройства завершилась. Войдите снова, чтобы продолжить обмен сообщениями.");
@@ -1220,6 +1304,12 @@ function setTheme(theme) {
 }
 
 function setSection(section) {
+  if (section !== activeSection) {
+    searchInput.value = "";
+    peopleViewRevision++;
+    openingUserId = "";
+    peopleSearch.reset();
+  }
   activeSection = section;
   document.querySelectorAll("[data-section-panel]").forEach((panel) => {
     panel.classList.toggle("active", panel.dataset.sectionPanel === section);
@@ -1229,7 +1319,9 @@ function setSection(section) {
   });
   const chatsOnly = section === "chats";
   $(".filter-row").hidden = !chatsOnly;
-  searchInput.placeholder = section === "calls" ? "Поиск звонков" : section === "contacts" ? "Поиск людей" : "Поиск";
+  searchInput.placeholder = section === "calls" ? "Поиск звонков" : section === "contacts" ? "Имя или @username" : "Поиск чатов";
+  searchInput.setAttribute("aria-label", searchInput.placeholder);
+  if (section === "contacts") searchPeople();
   if (section === "chats") renderChatList();
 }
 
@@ -1362,6 +1454,7 @@ function renderProfileChrome() {
     button.title = label;
     button.setAttribute("aria-label", label);
   });
+  if (activeSection === "contacts") searchPeople();
 }
 
 function showProfileError(message = "") {
@@ -1678,7 +1771,18 @@ messageInput.addEventListener("keydown", (event) => {
   }
 });
 
-searchInput.addEventListener("input", renderChatList);
+searchInput.addEventListener("input", () => {
+  if (activeSection === "contacts") searchPeople();
+  else renderChatList();
+});
+searchInput.addEventListener("keydown", (event) => {
+  if (activeSection === "contacts" && event.key === "Enter") {
+    event.preventDefault();
+    if (realtime.authenticated) peopleSearch.retry();
+  }
+});
+$("#peopleSearchRetry").addEventListener("click", () => peopleSearch.retry());
+$("#peopleSearchLogin").addEventListener("click", () => openProfileModal({ required: true }));
 document.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
@@ -1776,7 +1880,10 @@ document.querySelectorAll("[data-section]").forEach((button) => {
 });
 
 $(".back-button").addEventListener("click", closeConversationPanel);
-$(".compose-button").addEventListener("click", openConnectModal);
+$(".compose-button").addEventListener("click", () => {
+  setSection("contacts");
+  searchInput.focus();
+});
 $("#showRoomParticipants").addEventListener("click", openConnectModal);
 $(".attach-button").addEventListener("click", () => showToast("Фото, видео и файлы добавим на следующем этапе"));
 $(".emoji-button").addEventListener("click", () => {
