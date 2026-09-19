@@ -1,0 +1,24 @@
+# One application instance: realtime events are currently distributed in-process.
+services:
+  - type: web
+    name: mayak-chat
+    runtime: node
+    plan: free
+    region: ohio
+    buildCommand: npx --yes pnpm@11.19.0 install --frozen-lockfile --prod
+    startCommand: node --no-warnings=ExperimentalWarning server/index.js
+    healthCheckPath: /api/health
+    autoDeployTrigger: off
+    envVars:
+      - key: NODE_VERSION
+        value: 24.19.0
+      - key: NODE_ENV
+        value: production
+      - key: MAYAK_MODE
+        value: cloud
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DATABASE_URL
+        sync: false
+      - key: REGISTRATION_CODE
+        generateValue: true

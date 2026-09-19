@@ -26,3 +26,10 @@ work/
 .env
 .env.*
 !.env.example
+
+# Local prototype data
+server/.data/
+node_modules/
+.pnpm-store/
+backups/
+*.backup.json

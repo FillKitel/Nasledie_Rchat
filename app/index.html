@@ -2,144 +2,382 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
     <meta name="theme-color" content="#6274f3" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Маяк — мессенджер</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=3" />
+    <link rel="stylesheet" href="styles.css?v=21" />
   </head>
   <body>
     <svg class="svg-sprite" aria-hidden="true">
-      <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 11.5a8 8 0 0 1-8.5 8L5 22l1.6-4.8A8 8 0 1 1 20 11.5Z"/></symbol>
-      <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6.6 3.8 9 8.3 6.9 10a15 15 0 0 0 7.1 7.1l1.7-2.1 4.5 2.4-.8 3.1c-.2.8-1 1.4-1.8 1.3C9.5 20.7 3.3 14.5 2.2 6.4c-.1-.8.5-1.6 1.3-1.8l3.1-.8Z"/></symbol>
-      <symbol id="i-contacts" viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2.5 21v-2a6.5 6.5 0 0 1 13 0v2M17 4.5a4 4 0 0 1 0 7.5M18 15a5 5 0 0 1 3.5 4.8V21"/></symbol>
-      <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></symbol>
-      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
-      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M13.5 6.5 17.5 10.5M4 20l4.5-1 11-11a2.8 2.8 0 0 0-4-4l-11 11L4 20Z"/></symbol>
-      <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
-      <symbol id="i-video" viewBox="0 0 24 24"><rect x="2.5" y="5" width="14" height="14" rx="3"/><path d="m16.5 10 5-3v10l-5-3"/></symbol>
-      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></symbol>
-      <symbol id="i-attach" viewBox="0 0 24 24"><path d="m20.5 11.5-8.4 8.4a6 6 0 0 1-8.5-8.5l8.5-8.5a4 4 0 0 1 5.7 5.7l-8.5 8.5a2 2 0 1 1-2.8-2.8l7.8-7.8"/></symbol>
-      <symbol id="i-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14.5a5 5 0 0 0 8 0M9 9h.01M15 9h.01"/></symbol>
-      <symbol id="i-send" viewBox="0 0 24 24"><path d="m3 4 18 8-18 8 3.5-8L3 4Z"/><path d="M6.5 12H21"/></symbol>
-      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7Z"/></symbol>
-      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
-      <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></symbol>
-      <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
-      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
-      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
-      <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 18H8a5 5 0 1 1 1-9.9A6 6 0 0 1 20 11.5 3.5 3.5 0 0 1 17.5 18Z"/></symbol>
-      <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
-      <symbol id="i-route" viewBox="0 0 24 24"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M7.5 6H12a4 4 0 0 1 0 8H10a4 4 0 0 0 0 8h6.5"/></symbol>
-      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24">
+        <path d="M20 11.5a8 8 0 0 1-8.5 8L5 22l1.6-4.8A8 8 0 1 1 20 11.5Z" />
+      </symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24">
+        <path
+          d="M6.6 3.8 9 8.3 6.9 10a15 15 0 0 0 7.1 7.1l1.7-2.1 4.5 2.4-.8 3.1c-.2.8-1 1.4-1.8 1.3C9.5 20.7 3.3 14.5 2.2 6.4c-.1-.8.5-1.6 1.3-1.8l3.1-.8Z"
+        />
+      </symbol>
+      <symbol id="i-contacts" viewBox="0 0 24 24">
+        <circle cx="9" cy="8" r="4" />
+        <path
+          d="M2.5 21v-2a6.5 6.5 0 0 1 13 0v2M17 4.5a4 4 0 0 1 0 7.5M18 15a5 5 0 0 1 3.5 4.8V21"
+        />
+      </symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3" />
+        <path
+          d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"
+        />
+      </symbol>
+      <symbol id="i-search" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-4-4" />
+      </symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24">
+        <path
+          d="M13.5 6.5 17.5 10.5M4 20l4.5-1 11-11a2.8 2.8 0 0 0-4-4l-11 11L4 20Z"
+        />
+      </symbol>
+      <symbol id="i-back" viewBox="0 0 24 24">
+        <path d="m15 18-6-6 6-6" />
+      </symbol>
+      <symbol id="i-video" viewBox="0 0 24 24">
+        <rect x="2.5" y="5" width="14" height="14" rx="3" />
+        <path d="m16.5 10 5-3v10l-5-3" />
+      </symbol>
+      <symbol id="i-info" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 11v6M12 7.5h.01" />
+      </symbol>
+      <symbol id="i-attach" viewBox="0 0 24 24">
+        <path
+          d="m20.5 11.5-8.4 8.4a6 6 0 0 1-8.5-8.5l8.5-8.5a4 4 0 0 1 5.7 5.7l-8.5 8.5a2 2 0 1 1-2.8-2.8l7.8-7.8"
+        />
+      </symbol>
+      <symbol id="i-smile" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8 14.5a5 5 0 0 0 8 0M9 9h.01M15 9h.01" />
+      </symbol>
+      <symbol id="i-send" viewBox="0 0 24 24">
+        <path d="m3 4 18 8-18 8 3.5-8L3 4Z" />
+        <path d="M6.5 12H21" />
+      </symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24">
+        <path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7Z" />
+      </symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="4" />
+        <path
+          d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+        />
+      </symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24">
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" />
+      </symbol>
+      <symbol id="i-more" viewBox="0 0 24 24">
+        <circle cx="5" cy="12" r="1" />
+        <circle cx="12" cy="12" r="1" />
+        <circle cx="19" cy="12" r="1" />
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24">
+        <rect x="4" y="10" width="16" height="10" rx="3" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+      </symbol>
+      <symbol id="i-cloud" viewBox="0 0 24 24">
+        <path
+          d="M17.5 18H8a5 5 0 1 1 1-9.9A6 6 0 0 1 20 11.5 3.5 3.5 0 0 1 17.5 18Z"
+        />
+      </symbol>
+      <symbol id="i-mic" viewBox="0 0 24 24">
+        <rect x="9" y="3" width="6" height="11" rx="3" />
+        <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+      </symbol>
+      <symbol id="i-route" viewBox="0 0 24 24">
+        <circle cx="5" cy="6" r="2.5" />
+        <circle cx="19" cy="18" r="2.5" />
+        <path d="M7.5 6H12a4 4 0 0 1 0 8H10a4 4 0 0 0 0 8h6.5" />
+      </symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24">
+        <rect x="8" y="8" width="11" height="11" rx="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" />
+      </symbol>
     </svg>
 
     <main class="app-shell" id="appShell">
       <nav class="rail" aria-label="Основная навигация">
-        <button class="brand" aria-label="Маяк"><img src="icon.svg" alt="" /></button>
+        <button class="brand" aria-label="Маяк">
+          <img src="icon.svg" alt="" />
+        </button>
         <div class="rail-actions">
-          <button class="rail-button active" data-section="chats" aria-label="Чаты"><svg><use href="#i-chat"/></svg><span>Чаты</span></button>
-          <button class="rail-button" data-section="calls" aria-label="Звонки"><svg><use href="#i-phone"/></svg><span>Звонки</span></button>
-          <button class="rail-button" data-section="contacts" aria-label="Контакты"><svg><use href="#i-contacts"/></svg><span>Люди</span></button>
+          <button
+            class="rail-button active"
+            data-section="chats"
+            aria-label="Чаты"
+          >
+            <svg><use href="#i-chat" /></svg><span>Чаты</span>
+          </button>
+          <button class="rail-button" data-section="calls" aria-label="Звонки">
+            <svg><use href="#i-phone" /></svg><span>Звонки</span>
+          </button>
+          <button
+            class="rail-button"
+            data-section="contacts"
+            aria-label="Контакты"
+          >
+            <svg><use href="#i-contacts" /></svg><span>Люди</span>
+          </button>
         </div>
         <div class="rail-bottom">
-          <button class="rail-button theme-toggle" aria-label="Сменить тему"><svg class="moon"><use href="#i-moon"/></svg><svg class="sun"><use href="#i-sun"/></svg></button>
-          <button class="avatar avatar-me" aria-label="Профиль">АР</button>
+          <button class="rail-button theme-toggle" aria-label="Сменить тему">
+            <svg class="moon"><use href="#i-moon" /></svg
+            ><svg class="sun"><use href="#i-sun" /></svg>
+          </button>
+          <button
+            class="avatar avatar-me"
+            id="profileButton"
+            type="button"
+            aria-label="Профиль"
+          >
+            ??
+          </button>
         </div>
       </nav>
 
       <section class="inbox" aria-label="Диалоги">
         <header class="inbox-header">
-          <div><p class="eyebrow">Локальный стенд v0.2</p><h1>Маяк</h1></div>
-          <button class="icon-button compose-button" aria-label="Новый диалог"><svg><use href="#i-edit"/></svg></button>
+          <div>
+            <p class="eyebrow" id="serverModeLabel">Тестовая версия v0.9</p>
+            <h1>Маяк</h1>
+          </div>
+          <div class="inbox-actions">
+            <button
+              class="mini-profile-button"
+              id="inboxProfileButton"
+              type="button"
+              aria-label="Профиль"
+            >
+              ??
+            </button>
+            <button
+              class="icon-button compose-button"
+              aria-label="Новый диалог"
+            >
+              <svg><use href="#i-edit" /></svg>
+            </button>
+          </div>
         </header>
         <label class="search-field">
-          <svg><use href="#i-search"/></svg>
-          <input id="searchInput" type="search" placeholder="Поиск" autocomplete="off" />
+          <svg><use href="#i-search" /></svg>
+          <input
+            id="searchInput"
+            type="search"
+            placeholder="Поиск чатов"
+            aria-label="Поиск чатов"
+            autocomplete="off"
+            maxlength="60"
+          />
           <kbd>⌘ K</kbd>
         </label>
         <div class="filter-row" role="tablist">
-          <button class="filter active" data-filter="all">Все <span id="allCount">6</span></button>
-          <button class="filter" data-filter="unread">Непрочитанные <span id="unreadCount">3</span></button>
-        </div>
-        <div class="prototype-card" id="prototypeCard">
-          <div class="prototype-icon"><svg><use href="#i-cloud"/></svg></div>
-          <div>
-            <strong>Это уже не просто картинка</strong>
-            <p>Можно писать демо-сообщения, создавать локальные чаты, переключать разделы и тему. Flutter-база под iOS/Android/Mac лежит отдельно.</p>
-          </div>
+          <button class="filter active" data-filter="all">
+            Все <span id="allCount">2</span>
+          </button>
+          <button class="filter" data-filter="unread">
+            Непрочитанные <span id="unreadCount">0</span>
+          </button>
         </div>
         <div class="panel-stack">
-          <div class="chat-list content-panel active" id="chatList" data-section-panel="chats"></div>
-
-          <div class="side-panel content-panel" data-section-panel="calls" aria-label="Звонки">
-            <div class="panel-title">
-              <span><svg><use href="#i-phone"/></svg></span>
-              <div><strong>Звонки</strong><p>Будущий слой голосовых и видеозвонков</p></div>
+          <div
+            class="content-panel chats-panel active"
+            data-section-panel="chats"
+          >
+            <div class="live-status-card" id="liveStatus">
+              <span class="live-dot checking"></span>
+              <div>
+                <strong id="liveStatusTitle">Подключаюсь к серверу…</strong>
+                <p id="liveStatusText">
+                  Подождите, пока установится соединение.
+                </p>
+              </div>
             </div>
-            <button class="call-card" data-demo-toast="Аудиозвонки появятся после backend/сигналинга">
-              <span class="avatar purple">КП</span>
-              <span><strong>Команда продукта</strong><p>Групповой созвон · сегодня 16:00</p></span>
-              <svg><use href="#i-phone"/></svg>
-            </button>
-            <button class="call-card" data-demo-toast="Видеозвонки заложены как следующий модуль">
-              <span class="avatar orange">МК</span>
-              <span><strong>Марина Котова</strong><p>Пропущенный видеозвонок · вчера</p></span>
-              <svg><use href="#i-video"/></svg>
-            </button>
-            <button class="call-card" data-demo-toast="Голосовые комнаты добавим после серверной части">
-              <span class="avatar blue"><svg><use href="#i-mic"/></svg></span>
-              <span><strong>Голосовая комната</strong><p>Быстрый голосовой чат для команды</p></span>
-              <svg><use href="#i-plus"/></svg>
-            </button>
+            <div class="chat-list" id="chatList"></div>
           </div>
 
-          <div class="side-panel content-panel" data-section-panel="contacts" aria-label="Контакты">
+          <div
+            class="side-panel content-panel"
+            data-section-panel="calls"
+            aria-label="Звонки"
+          >
             <div class="panel-title">
-              <span><svg><use href="#i-contacts"/></svg></span>
-              <div><strong>Люди</strong><p>Контакты, статусы и быстрый старт диалога</p></div>
+              <span
+                ><svg><use href="#i-phone" /></svg
+              ></span>
+              <div>
+                <strong>Звонки</strong>
+                <p>Будущий слой голосовых и видеозвонков</p>
+              </div>
             </div>
-            <button class="contact-card" data-open-chat="marina">
-              <span class="avatar orange">МК</span>
-              <span><strong>Марина Котова</strong><p><i class="online-dot"></i>в сети · дизайнер</p></span>
+            <div class="empty-search">Звонки пока недоступны.</div>
+          </div>
+
+          <div
+            class="side-panel content-panel"
+            data-section-panel="contacts"
+            aria-label="Контакты"
+          >
+            <div class="panel-title">
+              <span
+                ><svg><use href="#i-contacts" /></svg
+              ></span>
+              <div>
+                <strong>Найти человека</strong>
+                <p>По имени или @username — даже если он офлайн</p>
+              </div>
+            </div>
+            <p
+              class="people-search-status"
+              id="peopleSearchStatus"
+              role="status"
+              aria-live="polite"
+            >
+              Введите минимум 2 символа в поиске выше.
+            </p>
+            <div
+              class="people-search-results"
+              id="peopleSearchResults"
+              role="list"
+              aria-label="Найденные пользователи"
+              aria-busy="false"
+            ></div>
+            <button
+              class="people-search-action"
+              id="peopleSearchRetry"
+              type="button"
+              hidden
+            >
+              Повторить поиск
             </button>
-            <button class="contact-card" data-open-chat="alex">
-              <span class="avatar blue">АР</span>
-              <span><strong>Алексей Романов</strong><p>был недавно · мобильная разработка</p></span>
+            <button
+              class="people-search-action"
+              id="peopleSearchLogin"
+              type="button"
+              hidden
+            >
+              Войти в аккаунт
             </button>
-            <button class="contact-card" data-open-chat="nikita">
-              <span class="avatar green">НО</span>
-              <span><strong>Никита Орлов</strong><p>был в 10:14 · музыка и кофе</p></span>
-            </button>
-            <button class="contact-card add-contact" data-demo-toast="Добавление контакта сделаем вместе с регистрацией">
-              <span class="avatar logo-avatar"><svg><use href="#i-plus"/></svg></span>
-              <span><strong>Добавить контакт</strong><p>по username, телефону или QR-коду</p></span>
-            </button>
+            <div class="people-room-link">
+              <button
+                class="contact-card"
+                id="showRoomParticipants"
+                type="button"
+              >
+                <span class="avatar logo-avatar"
+                  ><svg><use href="#i-contacts" /></svg></span
+                ><span
+                  ><strong>Сейчас в живом чате</strong>
+                  <p>Посмотреть подключённые устройства</p></span
+                >
+              </button>
+            </div>
           </div>
         </div>
         <nav class="mobile-tabs" aria-label="Мобильная навигация">
-          <button class="active" data-section="chats"><svg><use href="#i-chat"/></svg><span>Чаты</span></button>
-          <button data-section="calls"><svg><use href="#i-phone"/></svg><span>Звонки</span></button>
-          <button data-section="contacts"><svg><use href="#i-contacts"/></svg><span>Люди</span></button>
-          <button class="theme-toggle"><svg class="moon"><use href="#i-moon"/></svg><svg class="sun"><use href="#i-sun"/></svg><span>Тема</span></button>
+          <button class="active" data-section="chats">
+            <svg><use href="#i-chat" /></svg><span>Чаты</span>
+          </button>
+          <button data-section="calls">
+            <svg><use href="#i-phone" /></svg><span>Звонки</span>
+          </button>
+          <button data-section="contacts">
+            <svg><use href="#i-contacts" /></svg><span>Люди</span>
+          </button>
+          <button class="theme-toggle">
+            <svg class="moon"><use href="#i-moon" /></svg
+            ><svg class="sun"><use href="#i-sun" /></svg><span>Тема</span>
+          </button>
         </nav>
       </section>
 
       <section class="conversation" aria-label="Открытый диалог">
         <header class="conversation-header">
-          <button class="icon-button back-button" aria-label="Назад"><svg><use href="#i-back"/></svg></button>
-          <div class="avatar" id="headerAvatar">МК</div>
+          <button
+            class="icon-button back-button"
+            aria-label="Вернуться к чатам"
+          >
+            <svg><use href="#i-back" /></svg
+            ><span class="back-label">Чаты</span>
+          </button>
+          <button
+            class="avatar header-avatar-button"
+            id="headerAvatar"
+            type="button"
+            aria-label="Открыть профиль собеседника"
+          >
+            М
+          </button>
           <button class="person-heading" id="personHeading">
-            <strong id="headerName">Марина Котова</strong>
-            <span><i class="online-dot"></i><span id="headerStatus">в сети</span></span>
+            <strong id="headerName">Живой чат</strong>
+            <span
+              ><i class="online-dot"></i
+              ><span id="headerStatus">Подключение…</span></span
+            >
           </button>
           <div class="header-actions">
-            <button class="icon-button" aria-label="Аудиозвонок"><svg><use href="#i-phone"/></svg></button>
-            <button class="icon-button video-action" aria-label="Видеозвонок"><svg><use href="#i-video"/></svg></button>
-            <button class="icon-button info-button" aria-label="Информация"><svg><use href="#i-info"/></svg></button>
+            <button
+              class="local-room-button"
+              id="connectRoomButton"
+              type="button"
+              aria-label="Локальная комната"
+              hidden
+            >
+              <svg><use href="#i-route" /></svg><span>Локальная комната</span>
+            </button>
+            <button
+              class="icon-button info-button"
+              id="profileInfoButton"
+              type="button"
+              aria-label="Открыть профиль собеседника"
+            >
+              <svg><use href="#i-info" /></svg>
+            </button>
+            <div class="chat-actions-wrap">
+              <button
+                class="icon-button chat-actions-button"
+                id="chatActionsButton"
+                type="button"
+                aria-label="Действия с чатом"
+                aria-expanded="false"
+                aria-controls="chatActionsMenu"
+              >
+                <svg><use href="#i-more" /></svg>
+              </button>
+              <div class="chat-actions-menu" id="chatActionsMenu" hidden>
+                <button
+                  class="danger-menu-action"
+                  id="clearChatButton"
+                  type="button"
+                >
+                  <svg><use href="#i-trash" /></svg
+                  ><span
+                    ><strong>Очистить чат</strong
+                    ><small>Только у меня</small></span
+                  >
+                </button>
+              </div>
+            </div>
           </div>
         </header>
 
@@ -147,97 +385,514 @@
           <div class="messages" id="messages"></div>
         </div>
 
-        <div class="typing-indicator" id="typingIndicator"><span></span><span></span><span></span><em>печатает</em></div>
         <form class="composer" id="composer">
-          <button type="button" class="icon-button attach-button" aria-label="Прикрепить"><svg><use href="#i-attach"/></svg></button>
+          <button
+            type="button"
+            class="icon-button attach-button"
+            aria-label="Прикрепить"
+          >
+            <svg><use href="#i-attach" /></svg>
+          </button>
           <div class="composer-input-wrap">
-            <textarea id="messageInput" rows="1" placeholder="Напишите сообщение…" aria-label="Сообщение"></textarea>
-            <button type="button" class="emoji-button" aria-label="Эмодзи"><svg><use href="#i-smile"/></svg></button>
+            <textarea
+              id="messageInput"
+              rows="1"
+              placeholder="Напишите сообщение…"
+              aria-label="Сообщение"
+            ></textarea>
+            <button type="button" class="emoji-button" aria-label="Эмодзи">
+              <svg><use href="#i-smile" /></svg>
+            </button>
           </div>
-          <button type="submit" class="send-button" aria-label="Отправить"><svg><use href="#i-send"/></svg></button>
+          <button type="submit" class="send-button" aria-label="Отправить">
+            <svg><use href="#i-send" /></svg>
+          </button>
         </form>
       </section>
 
       <aside class="details" aria-label="Информация о собеседнике">
-        <div class="details-top"><button class="icon-button details-close" aria-label="Закрыть"><svg><use href="#i-back"/></svg></button><strong>Информация</strong><button class="icon-button"><svg><use href="#i-more"/></svg></button></div>
-        <div class="profile-card">
-          <div class="avatar profile-avatar" id="detailsAvatar">МК</div>
-          <h2 id="detailsName">Марина Котова</h2>
-          <p id="detailsHandle">@marina</p>
-          <div class="profile-actions">
-            <button><span><svg><use href="#i-phone"/></svg></span>Позвонить</button>
-            <button><span><svg><use href="#i-video"/></svg></span>Видео</button>
-            <button><span><svg><use href="#i-bell"/></svg></span>Не беспокоить</button>
-          </div>
+        <div class="details-top">
+          <button class="icon-button details-close" aria-label="Закрыть">
+            <svg><use href="#i-back" /></svg></button
+          ><strong>Информация</strong
+          ><button class="icon-button">
+            <svg><use href="#i-more" /></svg>
+          </button>
         </div>
+        <button
+          class="profile-card details-profile-button"
+          id="detailsProfileButton"
+          type="button"
+        >
+          <div class="avatar profile-avatar" id="detailsAvatar">М</div>
+          <h2 id="detailsName">Живой чат</h2>
+          <p id="detailsHandle">Общая комната</p>
+        </button>
         <div class="project-status">
-          <strong>Статус прототипа</strong>
-          <p><svg><use href="#i-lock"/></svg> Следующий шаг: аккаунты, сервер и синхронизация.</p>
-          <p><svg><use href="#i-cloud"/></svg> Уже есть: локальный UI + Flutter-основа под устройства.</p>
-          <button id="emergencyButton"><svg><use href="#i-route"/></svg>Аварийная доставка</button>
+          <strong>Маяк</strong>
+          <p>
+            <svg><use href="#i-lock" /></svg> Сообщения защищены HTTPS при
+            подключении к интернет-серверу. Сквозного шифрования пока нет.
+          </p>
+          <p>
+            <svg><use href="#i-cloud" /></svg> Общайтесь в общей комнате или
+            откройте личный диалог с участником.
+          </p>
+          <button id="emergencyButton">
+            <svg><use href="#i-route" /></svg>Аварийная доставка
+          </button>
         </div>
         <div class="details-section">
-          <div class="detail-row"><span>О себе</span><p id="detailsBio">Дизайнер. Люблю хорошую типографику и плохие шутки.</p></div>
-          <div class="detail-row"><span>Медиа</span><p>24 файла <b>›</b></p></div>
-          <div class="detail-row"><span>Общие группы</span><p>3 группы <b>›</b></p></div>
+          <div class="detail-row">
+            <span>О себе</span>
+            <p id="detailsBio">Общение с участниками Маяка.</p>
+          </div>
         </div>
-        <div class="shared-media" aria-hidden="true"><span class="media-one"></span><span class="media-two"></span><span class="media-three"></span></div>
       </aside>
     </main>
 
-    <div class="modal-backdrop" id="newChatModal" hidden>
-      <form class="modal-card" id="newChatForm">
-        <div class="modal-head">
-          <div><p class="eyebrow">Новый диалог</p><h2>Создать локальный чат</h2></div>
-          <button type="button" class="icon-button" data-modal-close aria-label="Закрыть"><svg><use href="#i-back"/></svg></button>
-        </div>
-        <label>Имя собеседника<input id="newChatName" autocomplete="off" placeholder="Например: Рома" /></label>
-        <label>Username<input id="newChatHandle" autocomplete="off" placeholder="@username" /></label>
-        <label>Первое сообщение<textarea id="newChatMessage" rows="3" placeholder="Привет! Это локальный демо-чат."></textarea></label>
-        <div class="modal-actions">
-          <button type="button" data-modal-close>Отмена</button>
-          <button type="submit"><svg><use href="#i-plus"/></svg>Создать</button>
-        </div>
-      </form>
+    <div class="message-actions-menu" id="messageActionsMenu" hidden>
+      <button id="deleteMessageButton" type="button">
+        <svg><use href="#i-trash" /></svg>Удалить сообщение
+      </button>
     </div>
 
     <div class="modal-backdrop" id="offlineModal" hidden>
       <section class="modal-card offline-card" aria-label="Аварийная доставка">
         <div class="modal-head">
-          <div><p class="eyebrow">Store & forward</p><h2>Офлайн-пакет</h2></div>
-          <button type="button" class="icon-button" data-offline-close aria-label="Закрыть"><svg><use href="#i-back"/></svg></button>
+          <div>
+            <p class="eyebrow">Store & forward</p>
+            <h2>Офлайн-пакет</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            data-offline-close
+            aria-label="Закрыть"
+          >
+            <svg><use href="#i-back" /></svg>
+          </button>
         </div>
         <div class="offline-explain">
-          <span><svg><use href="#i-lock"/></svg></span>
-          <p>Сообщение превращается в зашифрованный конверт. Его можно передать как текст: через QR, файл, Bluetooth, локальную сеть или “почтальона”. Посредник видит только пакет.</p>
+          <span
+            ><svg><use href="#i-lock" /></svg
+          ></span>
+          <p>
+            Сообщение превращается в зашифрованный конверт. Его можно передать
+            как текст: через QR, файл, Bluetooth, локальную сеть или
+            “почтальона”. Посредник видит только пакет.
+          </p>
         </div>
 
         <div class="offline-grid">
           <form id="offlinePacketForm" class="offline-section">
             <h3>Собрать пакет</h3>
-            <label>Кому<input id="offlineTo" autocomplete="off" placeholder="@recipient или имя" /></label>
-            <label>Ключ комнаты<input id="offlineKey" autocomplete="off" placeholder="Например: семейный пароль" /></label>
-            <label>Сообщение<textarea id="offlineMessage" rows="3" placeholder="Текст для офлайн-доставки"></textarea></label>
-            <button type="submit"><svg><use href="#i-route"/></svg>Зашифровать</button>
+            <label
+              >Кому<input
+                id="offlineTo"
+                autocomplete="off"
+                placeholder="@recipient или имя"
+            /></label>
+            <label
+              >Ключ комнаты<input
+                id="offlineKey"
+                autocomplete="off"
+                placeholder="Например: семейный пароль"
+            /></label>
+            <label
+              >Сообщение<textarea
+                id="offlineMessage"
+                rows="3"
+                placeholder="Текст для офлайн-доставки"
+              ></textarea>
+            </label>
+            <button type="submit">
+              <svg><use href="#i-route" /></svg>Зашифровать
+            </button>
           </form>
 
           <div class="offline-section">
             <h3>Готовый пакет</h3>
-            <textarea id="offlinePacketOutput" rows="8" readonly placeholder="Здесь появится JSON-пакет"></textarea>
-            <button type="button" id="copyPacketButton"><svg><use href="#i-copy"/></svg>Скопировать пакет</button>
+            <textarea
+              id="offlinePacketOutput"
+              rows="8"
+              readonly
+              placeholder="Здесь появится JSON-пакет"
+            ></textarea>
+            <button type="button" id="copyPacketButton">
+              <svg><use href="#i-copy" /></svg>Скопировать пакет
+            </button>
           </div>
         </div>
 
         <div class="offline-section import-section">
           <h3>Принять пакет</h3>
-          <label>Пакет<textarea id="incomingPacket" rows="5" placeholder="Вставьте полученный пакет"></textarea></label>
-          <label>Ключ комнаты<input id="incomingKey" autocomplete="off" placeholder="Тот же ключ, что у отправителя" /></label>
-          <button type="button" id="importPacketButton"><svg><use href="#i-cloud"/></svg>Расшифровать и добавить в чат</button>
+          <label
+            >Пакет<textarea
+              id="incomingPacket"
+              rows="5"
+              placeholder="Вставьте полученный пакет"
+            ></textarea>
+          </label>
+          <label
+            >Ключ комнаты<input
+              id="incomingKey"
+              autocomplete="off"
+              placeholder="Тот же ключ, что у отправителя"
+          /></label>
+          <button type="button" id="importPacketButton">
+            <svg><use href="#i-cloud" /></svg>Расшифровать и добавить в чат
+          </button>
         </div>
       </section>
     </div>
 
+    <div class="modal-backdrop" id="connectModal" hidden>
+      <section
+        class="modal-card connect-modal-card"
+        aria-label="Локальная комната"
+      >
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow" id="connectRoomTitle">Локальная комната</p>
+            <h2>Подключить телефон</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            data-connect-close
+            aria-label="Закрыть"
+          >
+            <svg><use href="#i-back" /></svg>
+          </button>
+        </div>
+        <div class="connect-modal-grid">
+          <div class="connect-card-copy">
+            <strong>QR-код для входа в живой чат</strong>
+            <span id="connectHint"
+              >Откройте камеру телефона, наведите на QR-код и запустите «Маяк».
+              Войдите в аккаунт; телефон должен быть в той же Wi‑Fi сети.</span
+            >
+            <a id="connectUrl" href="#" target="_blank" rel="noreferrer"
+              >адрес появится после подключения</a
+            >
+            <div class="connect-actions">
+              <button type="button" id="copyConnectUrl">
+                <svg><use href="#i-copy" /></svg>Скопировать
+              </button>
+              <button type="button" id="refreshConnectInfo">
+                <svg><use href="#i-route" /></svg>Обновить QR
+              </button>
+            </div>
+          </div>
+          <div class="qr-frame">
+            <img id="connectQr" alt="QR-код для подключения телефона" />
+          </div>
+        </div>
+        <div class="room-presence-card">
+          <div class="room-presence-head">
+            <div>
+              <strong>Сейчас в комнате</strong>
+              <p id="connectParticipantsCount">Ждём подключение устройств</p>
+            </div>
+            <span class="presence-pill" id="presencePill">0 онлайн</span>
+          </div>
+          <div class="participant-list" id="connectParticipants">
+            <div class="participant-empty">
+              Когда телефон или второй компьютер откроет эту ссылку, он появится
+              здесь.
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="modal-backdrop profile-modal-backdrop" id="profileModal" hidden>
+      <form class="modal-card profile-modal-card" id="profileForm" novalidate>
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow" id="profileEyebrow">Первый вход</p>
+            <h2 id="profileTitle">Создать профиль</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            id="profileCloseButton"
+            data-profile-close
+            aria-label="Закрыть"
+          >
+            <svg><use href="#i-back" /></svg>
+          </button>
+        </div>
+        <div class="profile-hero">
+          <div class="avatar profile-preview-avatar" id="profilePreviewAvatar">
+            ??
+          </div>
+          <div>
+            <strong id="profilePreviewName">Локальный профиль</strong>
+            <p id="profilePreviewMeta">
+              Пока без облачного аккаунта: имя хранится только на этом
+              устройстве.
+            </p>
+          </div>
+        </div>
+        <div class="auth-tabs" id="authTabs" hidden>
+          <button type="button" class="active" data-auth-mode="register">
+            Регистрация
+          </button>
+          <button type="button" data-auth-mode="login">Вход</button>
+        </div>
+        <div class="profile-customization" id="profileCustomizationFields">
+          <input
+            class="visually-hidden"
+            id="profileAvatarInput"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+          />
+          <div class="profile-avatar-actions">
+            <button type="button" id="profileAvatarChoose">
+              <svg><use href="#i-edit" /></svg><span>Выбрать фото</span>
+            </button>
+            <button
+              type="button"
+              class="profile-avatar-remove"
+              id="profileAvatarRemove"
+              hidden
+            >
+              Удалить
+            </button>
+            <span
+              >Фото будет обрезано до квадрата и уменьшено до 256 × 256.</span
+            >
+          </div>
+          <label
+            >О себе<textarea
+              id="profileBio"
+              rows="3"
+              maxlength="280"
+              placeholder="Пара слов о себе"
+            ></textarea
+            ><small><span id="profileBioCount">0</span>/280</small></label
+          >
+        </div>
+        <label id="profileNameField"
+          >Ваше имя<input
+            id="profileName"
+            maxlength="60"
+            autocomplete="name"
+            placeholder="Например: Роман"
+            required
+        /></label>
+        <label
+          >Username<input
+            id="profileHandle"
+            maxlength="40"
+            autocomplete="username"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            aria-describedby="profileHandleHint"
+            placeholder="@roman"
+        /></label>
+        <p class="profile-field-hint" id="profileHandleHint">
+          3–32 символа: русские или латинские буквы, цифры, дефис (-) и
+          подчёркивание (_).
+        </p>
+        <label id="profilePasswordField" hidden
+          >Пароль<input
+            id="profilePassword"
+            type="password"
+            minlength="8"
+            maxlength="128"
+            autocomplete="new-password"
+            placeholder="Не менее 8 символов"
+        /></label>
+        <label id="profileInviteField" hidden
+          >Код приглашения<input
+            id="profileInvite"
+            type="password"
+            maxlength="128"
+            autocomplete="off"
+            placeholder="Код от организатора тестирования"
+        /></label>
+        <label
+          >Название устройства<input
+            id="profileDeviceName"
+            maxlength="60"
+            autocomplete="off"
+            placeholder="Например: Mac Романа"
+        /></label>
+        <div class="device-id-row">
+          <span>ID устройства</span>
+          <code id="profileDeviceId">—</code>
+        </div>
+        <div class="notification-settings" id="notificationSettings" hidden>
+          <div>
+            <strong>Уведомления</strong>
+            <p id="notificationStatus">Проверяем поддержку устройства…</p>
+          </div>
+          <button type="button" id="notificationToggleButton">Включить</button>
+        </div>
+        <p class="profile-error" id="profileError" role="alert" hidden></p>
+        <p class="profile-note" id="profileNote">
+          Аккаунт хранится на вашем сервере «Маяка», а пароль — только в виде
+          защищённого хеша.
+        </p>
+        <div class="modal-actions">
+          <button
+            type="button"
+            class="danger-action"
+            id="profileLogoutButton"
+            hidden
+          >
+            Выйти
+          </button>
+          <button type="button" id="profileCancelButton" data-profile-close>
+            Отмена
+          </button>
+          <button type="submit" id="profileSubmitButton">
+            <svg><use href="#i-lock" /></svg>Создать профиль
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div
+      class="modal-backdrop public-profile-backdrop"
+      id="publicProfileModal"
+      hidden
+    >
+      <section
+        class="modal-card public-profile-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="publicProfileName"
+      >
+        <div class="modal-head public-profile-head">
+          <div>
+            <p class="eyebrow">Профиль Маяка</p>
+            <h2>Информация</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            data-public-profile-close
+            aria-label="Закрыть"
+          >
+            <svg><use href="#i-back" /></svg>
+          </button>
+        </div>
+        <div class="public-profile-hero">
+          <div class="avatar public-profile-avatar" id="publicProfileAvatar">
+            ??
+          </div>
+          <h2 id="publicProfileName">Пользователь</h2>
+          <p id="publicProfileHandle">@username</p>
+        </div>
+        <div class="public-profile-info">
+          <span>О себе</span>
+          <p id="publicProfileBio">
+            Пользователь пока ничего о себе не рассказал.
+          </p>
+        </div>
+        <div class="public-profile-meta">
+          <span>Статус</span>
+          <strong id="publicProfilePresence">—</strong>
+        </div>
+        <div class="public-profile-meta">
+          <span>В Маяке с</span>
+          <strong id="publicProfileSince">—</strong>
+        </div>
+        <div class="public-profile-actions">
+          <button type="button" id="publicProfileMessage">
+            <svg><use href="#i-chat" /></svg>Написать
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <div
+      class="modal-backdrop avatar-crop-backdrop"
+      id="avatarCropModal"
+      hidden
+    >
+      <section
+        class="modal-card avatar-crop-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="avatarCropTitle"
+      >
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">Фото профиля</p>
+            <h2 id="avatarCropTitle">Настроить фото</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            data-avatar-crop-close
+            aria-label="Закрыть"
+          >
+            <svg><use href="#i-back" /></svg>
+          </button>
+        </div>
+        <div
+          class="avatar-crop-stage"
+          id="avatarCropStage"
+          tabindex="0"
+          aria-label="Перетащите фото, чтобы выбрать область аватара"
+        >
+          <img id="avatarCropImage" alt="Выбранное фото" draggable="false" />
+          <div class="avatar-crop-mask" aria-hidden="true"></div>
+        </div>
+        <label class="avatar-zoom-control" for="avatarCropZoom">
+          <svg><use href="#i-search" /></svg>
+          <input
+            id="avatarCropZoom"
+            type="range"
+            min="1"
+            max="3"
+            step="0.01"
+            value="1"
+            aria-label="Масштаб фото"
+          />
+          <svg class="zoom-large"><use href="#i-search" /></svg>
+        </label>
+        <p class="avatar-crop-hint">
+          Двигайте фото пальцем или мышью. Круг показывает, что будет видно в
+          профиле.
+        </p>
+        <p class="profile-error" id="avatarCropError" role="alert" hidden></p>
+        <div class="modal-actions">
+          <button type="button" data-avatar-crop-close>Отмена</button>
+          <button type="button" class="avatar-crop-apply" id="avatarCropApply">
+            Готово
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="confirmModal" hidden>
+      <form class="modal-card confirm-card" id="confirmForm">
+        <div class="confirm-icon">
+          <svg><use href="#i-trash" /></svg>
+        </div>
+        <h2 id="confirmTitle">Подтвердите действие</h2>
+        <p id="confirmText"></p>
+        <div class="modal-actions">
+          <button type="button" id="confirmCancelButton">Отмена</button>
+          <button type="submit" class="confirm-danger" id="confirmActionButton">
+            Удалить
+          </button>
+        </div>
+      </form>
+    </div>
+
     <div class="toast" id="toast" role="status"></div>
-    <script src="app.js?v=3" defer></script>
+    <script src="chat-state.js?v=21" defer></script>
+    <script src="user-search.js?v=21" defer></script>
+    <script src="username.js?v=21" defer></script>
+    <script src="avatar-crop.js?v=21" defer></script>
+    <script src="app.js?v=21" defer></script>
   </body>
 </html>
