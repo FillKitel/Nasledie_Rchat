@@ -7,6 +7,7 @@ const tables = [
   "users",
   "conversations",
   "conversation_members",
+  "conversation_reads",
   "messages",
   "metadata",
 ];
@@ -35,6 +36,9 @@ async function exportBackup(db, file) {
 
 async function importBackup(db, file) {
   const data = JSON.parse(await fs.readFile(file, "utf8"));
+  // v0.9 backups made before read receipts do not contain this optional table.
+  if (data.format === "mayak-backup-v1" && data.tables)
+    data.tables.conversation_reads ||= [];
   if (
     data.format !== "mayak-backup-v1" ||
     !tables.every((table) => Array.isArray(data.tables?.[table]))
@@ -44,13 +48,14 @@ async function importBackup(db, file) {
     if (db.kind === "postgres") {
       // Import only into an unused database; block concurrent registrations/writes.
       await db.exec(
-        "LOCK TABLE users, sessions, conversations, conversation_members, messages, metadata IN ACCESS EXCLUSIVE MODE",
+        "LOCK TABLE users, sessions, conversations, conversation_members, conversation_reads, messages, metadata IN ACCESS EXCLUSIVE MODE",
       );
     }
     for (const table of [
       "users",
       "sessions",
       "messages",
+      "conversation_reads",
       "conversation_members",
       "metadata",
     ]) {

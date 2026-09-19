@@ -12,7 +12,7 @@
     <title>Маяк — мессенджер</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=20" />
+    <link rel="stylesheet" href="styles.css?v=21" />
   </head>
   <body>
     <svg class="svg-sprite" aria-hidden="true">
@@ -726,6 +726,13 @@
           <span>ID устройства</span>
           <code id="profileDeviceId">—</code>
         </div>
+        <div class="notification-settings" id="notificationSettings" hidden>
+          <div>
+            <strong>Уведомления</strong>
+            <p id="notificationStatus">Проверяем поддержку устройства…</p>
+          </div>
+          <button type="button" id="notificationToggleButton">Включить</button>
+        </div>
         <p class="profile-error" id="profileError" role="alert" hidden></p>
         <p class="profile-note" id="profileNote">
           Аккаунт хранится на вашем сервере «Маяка», а пароль — только в виде
@@ -787,6 +794,10 @@
           <p id="publicProfileBio">
             Пользователь пока ничего о себе не рассказал.
           </p>
+        </div>
+        <div class="public-profile-meta">
+          <span>Статус</span>
+          <strong id="publicProfilePresence">—</strong>
         </div>
         <div class="public-profile-meta">
           <span>В Маяке с</span>
@@ -878,10 +889,10 @@
     </div>
 
     <div class="toast" id="toast" role="status"></div>
-    <script src="chat-state.js?v=20" defer></script>
-    <script src="user-search.js?v=20" defer></script>
-    <script src="username.js?v=20" defer></script>
-    <script src="avatar-crop.js?v=20" defer></script>
-    <script src="app.js?v=20" defer></script>
+    <script src="chat-state.js?v=21" defer></script>
+    <script src="user-search.js?v=21" defer></script>
+    <script src="username.js?v=21" defer></script>
+    <script src="avatar-crop.js?v=21" defer></script>
+    <script src="app.js?v=21" defer></script>
   </body>
 </html>

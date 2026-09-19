@@ -33,9 +33,14 @@ Node.js 22+ со встроенным модулем SQLite. По умолчан
 - `DELETE /api/auth/avatar` — удаление своего аватара;
 - `GET /api/users/:id/avatar` — получение аватара авторизованным пользователем;
 - `POST /api/auth/logout` — завершение текущей сессии;
+- `GET /api/push/config` — открытый VAPID-ключ для авторизованного клиента;
+- `PUT /api/push/subscriptions` — регистрация push-подписки текущего устройства;
+- `DELETE /api/push/subscriptions` — удаление push-подписки устройства;
 - `GET /api/users?query=...` — поиск зарегистрированных пользователей;
+- `GET /api/users/:id` — публичный профиль, статус и последнее посещение;
 - `GET /api/conversations` — список доступных диалогов;
 - `POST /api/conversations/direct` — личный диалог с пользователем;
+- `POST /api/conversations/:id/read` — отметить личный диалог прочитанным;
 - `GET /api/connect` — LAN-ссылка для телефона;
 - `GET /api/connect.svg` — QR-код подключения;
 - `GET /api/messages?chatId=live` — история общей локальной комнаты;
@@ -45,6 +50,10 @@ Node.js 22+ со встроенным модулем SQLite. По умолчан
 - `GET /api/presence` — список устройств онлайн;
 - `POST /api/messages` — отправка от имени авторизованного аккаунта;
 - `GET /api/events` — поток событий для сообщений и участников онлайн.
+
+VAPID-ключи для Web Push автоматически создаются при первом запуске и хранятся
+в основной базе. Для заранее подготовленных ключей можно задать
+`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` и необязательный `VAPID_SUBJECT`.
 
 Аккаунты, сессии, участники и история хранятся локально в
 `server/.data/mayak.sqlite` и не попадают в Git. Старый `messages.json` читается

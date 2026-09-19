@@ -172,10 +172,36 @@ for (const kind of ["sqlite", "postgres"])
             "avatarUrl",
             "createdAt",
             "updatedAt",
+            "online",
+            "lastSeenAt",
           ].sort(),
         );
         assert.equal(publicProfile.payload.user.name, "Роман");
         assert.match(publicProfile.payload.user.avatarUrl, /\/avatar\?v=/);
+        assert.equal(typeof publicProfile.payload.user.online, "boolean");
+        assert.ok(publicProfile.payload.user.lastSeenAt);
+
+        const pushConfig = await api(baseUrl, "/api/push/config", {
+          cookie: roman.cookie,
+        });
+        assert.equal(pushConfig.status, 200);
+        assert.ok(pushConfig.payload.publicKey);
+        const pushEndpoint = "https://push.example.test/subscription/roman";
+        const pushSubscription = await api(baseUrl, "/api/push/subscriptions", {
+          method: "PUT",
+          cookie: roman.cookie,
+          body: {
+            endpoint: pushEndpoint,
+            keys: { p256dh: "test-p256dh", auth: "test-auth" },
+          },
+        });
+        assert.equal(pushSubscription.status, 200);
+        const pushUnsubscribe = await api(baseUrl, "/api/push/subscriptions", {
+          method: "DELETE",
+          cookie: roman.cookie,
+          body: { endpoint: pushEndpoint },
+        });
+        assert.equal(pushUnsubscribe.status, 200);
 
         const missingProfile = await api(baseUrl, "/api/users/missing-user", {
           cookie: roman.cookie,

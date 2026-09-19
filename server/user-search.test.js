@@ -194,6 +194,8 @@ for (const kind of ["sqlite", "postgres"]) {
               "avatarUrl",
               "createdAt",
               "updatedAt",
+              "online",
+              "lastSeenAt",
             ].sort(),
           );
         }

@@ -115,6 +115,15 @@ for (const kind of ["sqlite", "postgres"])
           { peerUserId: bob.user.id },
         );
         const chatId = conversation.id;
+        const aliceConversations = await api(
+          alice.cookie,
+          "/api/conversations",
+        );
+        const aliceDirect = aliceConversations.conversations.find(
+          (item) => item.id === chatId,
+        );
+        assert.equal(aliceDirect.peer.online, true);
+        assert.ok(aliceDirect.peer.lastSeenAt);
         const sent = await api(alice.cookie, "/api/messages", "POST", {
           chatId,
           text: "Private message",
@@ -122,6 +131,22 @@ for (const kind of ["sqlite", "postgres"])
         for (const s of [a, phone, b])
           assert.equal((await s.wait("message")).id, sent.message.id);
         assert.ok(sent.message.sequence > 0);
+        const read = await api(
+          bob.cookie,
+          `/api/conversations/${chatId}/read`,
+          "POST",
+          {},
+        );
+        assert.equal(read.receipt.lastReadSequence, sent.message.sequence);
+        assert.equal(
+          (await a.wait("messages_read")).lastReadSequence,
+          sent.message.sequence,
+        );
+        const aliceReadHistory = await api(
+          alice.cookie,
+          `/api/messages?chatId=${chatId}`,
+        );
+        assert.ok(aliceReadHistory.messages[0].readAt);
         const cleared = await api(
           alice.cookie,
           `/api/conversations/${chatId}/messages`,
@@ -200,6 +225,12 @@ for (const kind of ["sqlite", "postgres"])
           false,
           "Clear is personal, not for the peer",
         );
+        await b.close();
+        const bobOffline = await a.wait(
+          "user_presence",
+          (item) => item.userId === bob.user.id && item.online === false,
+        );
+        assert.ok(bobOffline.lastSeenAt);
         const reconnected = await stream(app.url, alice.cookie);
         streams.push(reconnected);
         assert.ok(

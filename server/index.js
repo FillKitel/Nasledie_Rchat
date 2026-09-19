@@ -17,6 +17,7 @@ const {
 } = require("./security");
 const { promisify } = require("node:util");
 const QRCode = require("qrcode");
+const webpush = require("web-push");
 const scrypt = promisify(crypto.scrypt);
 
 async function main() {
@@ -94,6 +95,50 @@ async function main() {
   }
 
   const database = await openDatabase({ file: databaseFile });
+
+  async function ensurePushKeys() {
+    let publicKey = safeText(process.env.VAPID_PUBLIC_KEY, "", 512);
+    let privateKey = safeText(process.env.VAPID_PRIVATE_KEY, "", 512);
+    if (!publicKey || !privateKey) {
+      const savedPublic = await database
+        .prepare("SELECT value FROM metadata WHERE key = ?")
+        .get("vapid_public_key");
+      const savedPrivate = await database
+        .prepare("SELECT value FROM metadata WHERE key = ?")
+        .get("vapid_private_key");
+      publicKey = savedPublic?.value || "";
+      privateKey = savedPrivate?.value || "";
+    }
+    if (!publicKey || !privateKey) {
+      const generated = webpush.generateVAPIDKeys();
+      publicKey = generated.publicKey;
+      privateKey = generated.privateKey;
+      await database.transaction(async () => {
+        await database
+          .prepare("INSERT OR IGNORE INTO metadata (key, value) VALUES (?, ?)")
+          .run("vapid_public_key", publicKey);
+        await database
+          .prepare("INSERT OR IGNORE INTO metadata (key, value) VALUES (?, ?)")
+          .run("vapid_private_key", privateKey);
+      });
+      const savedPublic = await database
+        .prepare("SELECT value FROM metadata WHERE key = ?")
+        .get("vapid_public_key");
+      const savedPrivate = await database
+        .prepare("SELECT value FROM metadata WHERE key = ?")
+        .get("vapid_private_key");
+      publicKey = savedPublic.value;
+      privateKey = savedPrivate.value;
+    }
+    const subject =
+      safeText(process.env.VAPID_SUBJECT, "", 512) ||
+      config.publicOrigin ||
+      "mailto:admin@mayak.local";
+    webpush.setVapidDetails(subject, publicKey, privateKey);
+    return publicKey;
+  }
+
+  const pushPublicKey = await ensurePushKeys();
 
   await database
     .prepare(
@@ -341,6 +386,47 @@ async function main() {
       devices: participants.length,
       participants,
     };
+  }
+
+  async function userPresence(userId) {
+    const active = [...clients.values()].filter(
+      (participant) => participant.userId === userId,
+    );
+    const session = await database
+      .prepare(
+        "SELECT MAX(last_seen_at) AS last_seen_at FROM sessions WHERE user_id = ?",
+      )
+      .get(userId);
+    const liveLastSeen = active
+      .map((participant) => participant.lastSeenAt)
+      .filter(Boolean)
+      .sort()
+      .at(-1);
+    return {
+      online: active.length > 0,
+      lastSeenAt: liveLastSeen || session?.last_seen_at || "",
+    };
+  }
+
+  async function publicUserWithPresence(row) {
+    return { ...publicUser(row), ...(await userPresence(row.id)) };
+  }
+
+  async function broadcastUserPresence(userId) {
+    const payload = { userId, ...(await userPresence(userId)) };
+    const peers = await database
+      .prepare(
+        `
+      SELECT DISTINCT other.user_id FROM conversation_members mine
+      JOIN conversations c ON c.id = mine.conversation_id AND c.kind = 'direct'
+      JOIN conversation_members other ON other.conversation_id = mine.conversation_id
+      WHERE mine.user_id = ? AND other.user_id != ?
+    `,
+      )
+      .all(userId, userId);
+    broadcastUserEvent(userId, "user_presence", payload);
+    for (const peer of peers)
+      broadcastUserEvent(peer.user_id, "user_presence", payload);
   }
 
   function broadcastPresence() {
@@ -641,7 +727,65 @@ async function main() {
   `,
       )
       .all(conversationId, clearedBeforeRowid);
-    return rows.map(messageFromRow);
+    const peerReceipt = await database
+      .prepare(
+        `
+      SELECT cr.last_read_rowid, cr.read_at FROM conversation_reads cr
+      JOIN conversations c ON c.id = cr.conversation_id AND c.kind = 'direct'
+      WHERE cr.conversation_id = ? AND cr.user_id != ?
+      ORDER BY cr.last_read_rowid DESC LIMIT 1
+    `,
+      )
+      .get(conversationId, userId);
+    return rows.map((row) => {
+      const message = messageFromRow(row);
+      message.readAt =
+        row.sender_id === userId &&
+        Number(row.rowid) <= Number(peerReceipt?.last_read_rowid || 0)
+          ? peerReceipt.read_at
+          : "";
+      return message;
+    });
+  }
+
+  async function markConversationRead(userId, conversationId) {
+    return conversationTransaction(conversationId, async () => {
+      const latest = await database
+        .prepare(
+          "SELECT COALESCE(MAX(rowid), 0) AS rowid FROM messages WHERE conversation_id = ?",
+        )
+        .get(conversationId);
+      const lastReadSequence = Number(latest.rowid || 0);
+      const existing = await database
+        .prepare(
+          "SELECT last_read_rowid, read_at FROM conversation_reads WHERE conversation_id = ? AND user_id = ?",
+        )
+        .get(conversationId, userId);
+      const previous = Number(existing?.last_read_rowid || 0);
+      let readAt = existing?.read_at || nowIso();
+      if (existing) {
+        if (lastReadSequence > previous) {
+          readAt = nowIso();
+          await database
+            .prepare(
+              "UPDATE conversation_reads SET last_read_rowid = ?, read_at = ? WHERE conversation_id = ? AND user_id = ?",
+            )
+            .run(lastReadSequence, readAt, conversationId, userId);
+        }
+      } else {
+        await database
+          .prepare(
+            "INSERT INTO conversation_reads (conversation_id, user_id, last_read_rowid, read_at) VALUES (?, ?, ?, ?)",
+          )
+          .run(conversationId, userId, lastReadSequence, readAt);
+      }
+      return {
+        chatId: conversationId,
+        userId,
+        lastReadSequence: Math.max(previous, lastReadSequence),
+        readAt,
+      };
+    });
   }
 
   async function insertMessage(message) {
@@ -674,6 +818,58 @@ async function main() {
     message.sequence = Number(saved.rowid);
   }
 
+  async function notifyMessageRecipients(message) {
+    const conversation = await database
+      .prepare("SELECT kind FROM conversations WHERE id = ?")
+      .get(message.chatId);
+    if (conversation?.kind !== "direct") return;
+    const subscriptions = await database
+      .prepare(
+        `
+      SELECT ps.* FROM push_subscriptions ps
+      JOIN sessions s ON s.id = ps.session_id AND s.expires_at > ?
+      JOIN conversation_members cm ON cm.user_id = ps.user_id
+      WHERE cm.conversation_id = ? AND ps.user_id != ?
+    `,
+      )
+      .all(nowIso(), message.chatId, message.authorId);
+    const payload = JSON.stringify({
+      title: message.authorName || "Новое сообщение",
+      body: message.text.slice(0, 180),
+      chatId: message.chatId,
+      url: `/?chat=${encodeURIComponent(message.chatId)}`,
+      messageId: message.id,
+    });
+    await Promise.allSettled(
+      subscriptions.map(async (subscription) => {
+        try {
+          await webpush.sendNotification(
+            {
+              endpoint: subscription.endpoint,
+              keys: {
+                p256dh: subscription.p256dh,
+                auth: subscription.auth,
+              },
+            },
+            payload,
+            { TTL: 24 * 60 * 60, urgency: "high", timeout: 5000 },
+          );
+        } catch (error) {
+          if ([404, 410].includes(error.statusCode)) {
+            await database
+              .prepare("DELETE FROM push_subscriptions WHERE endpoint = ?")
+              .run(subscription.endpoint);
+          } else {
+            console.warn(
+              "Push notification failed:",
+              error.statusCode || error.message,
+            );
+          }
+        }
+      }),
+    );
+  }
+
   async function conversationForUser(row, userId) {
     let peer = null;
     if (row.kind === "direct") {
@@ -687,7 +883,7 @@ async function main() {
     `,
         )
         .get(row.id, userId);
-      if (peerRow) peer = publicUser(peerRow);
+      if (peerRow) peer = await publicUserWithPresence(peerRow);
     }
     const clearedBeforeRowid = Number(
       row.cleared_before_rowid ??
@@ -702,6 +898,21 @@ async function main() {
   `,
       )
       .get(row.id, clearedBeforeRowid);
+    const readState = await database
+      .prepare(
+        "SELECT last_read_rowid FROM conversation_reads WHERE conversation_id = ? AND user_id = ?",
+      )
+      .get(row.id, userId);
+    const lastReadSequence = Number(readState?.last_read_rowid || 0);
+    const unread = await database
+      .prepare(
+        `
+      SELECT COUNT(*) AS count FROM messages
+      WHERE conversation_id = ? AND rowid > ? AND rowid > ?
+        AND (sender_id IS NULL OR sender_id != ?)
+    `,
+      )
+      .get(row.id, clearedBeforeRowid, lastReadSequence, userId);
     return {
       id: row.id,
       kind: row.kind,
@@ -709,6 +920,8 @@ async function main() {
       peer,
       createdAt: row.created_at,
       clearedBeforeSequence: clearedBeforeRowid,
+      lastReadSequence,
+      unreadCount: Number(unread?.count || 0),
       lastMessage: lastMessage ? messageFromRow(lastMessage) : null,
     };
   }
@@ -876,6 +1089,7 @@ async function main() {
         database: database.kind,
         inviteRequired: Boolean(config.registrationCode),
         auth: "sessions",
+        push: true,
       });
       return;
     }
@@ -1166,7 +1380,7 @@ async function main() {
         .get(userId);
       if (!user)
         throw new ApiError(404, "Пользователь не найден", "user_not_found");
-      sendJson(res, 200, { user: publicUser(user) });
+      sendJson(res, 200, { user: await publicUserWithPresence(user) });
       return;
     }
 
@@ -1189,6 +1403,79 @@ async function main() {
         { ok: true },
         { "set-cookie": sessionCookie(req, "", 0) },
       );
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/push/config") {
+      await requireAuth(req);
+      sendJson(res, 200, { publicKey: pushPublicKey });
+      return;
+    }
+
+    if (req.method === "PUT" && url.pathname === "/api/push/subscriptions") {
+      const auth = await requireAuth(req);
+      const payload = await readJsonBody(req);
+      const endpoint = safeText(payload.endpoint, "", 2048);
+      const p256dh = safeText(payload.keys?.p256dh, "", 512);
+      const authKey = safeText(payload.keys?.auth, "", 512);
+      let endpointUrl;
+      try {
+        endpointUrl = new URL(endpoint);
+      } catch {
+        throw new ApiError(
+          400,
+          "Некорректная push-подписка",
+          "invalid_push_subscription",
+        );
+      }
+      if (endpointUrl.protocol !== "https:" || !p256dh || !authKey) {
+        throw new ApiError(
+          400,
+          "Некорректная push-подписка",
+          "invalid_push_subscription",
+        );
+      }
+      const now = nowIso();
+      const id = `push-${crypto.createHash("sha256").update(endpoint).digest("hex").slice(0, 32)}`;
+      await database
+        .prepare(
+          `
+        INSERT INTO push_subscriptions (
+          id, user_id, session_id, endpoint, p256dh, auth, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(endpoint) DO UPDATE SET
+          user_id = excluded.user_id,
+          session_id = excluded.session_id,
+          p256dh = excluded.p256dh,
+          auth = excluded.auth,
+          updated_at = excluded.updated_at
+      `,
+        )
+        .run(
+          id,
+          auth.user.id,
+          auth.session.id,
+          endpoint,
+          p256dh,
+          authKey,
+          now,
+          now,
+        );
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (req.method === "DELETE" && url.pathname === "/api/push/subscriptions") {
+      const auth = await requireAuth(req);
+      const payload = await readJsonBody(req);
+      const endpoint = safeText(payload.endpoint, "", 2048);
+      if (endpoint)
+        await database
+          .prepare(
+            "DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?",
+          )
+          .run(endpoint, auth.user.id);
+      sendJson(res, 200, { ok: true });
       return;
     }
 
@@ -1216,7 +1503,9 @@ async function main() {
     `,
         )
         .all(auth.user.id, pattern, pattern, query);
-      sendJson(res, 200, { users: users.map(publicUser) });
+      sendJson(res, 200, {
+        users: await Promise.all(users.map(publicUserWithPresence)),
+      });
       return;
     }
 
@@ -1247,6 +1536,38 @@ async function main() {
       sendJson(res, 200, {
         messages: await conversationMessages(chatId, auth.user.id),
       });
+      return;
+    }
+
+    const readConversationMatch = url.pathname.match(
+      /^\/api\/conversations\/([^/]+)\/read$/,
+    );
+    if (req.method === "POST" && readConversationMatch) {
+      const auth = await requireAuth(req);
+      let chatId;
+      try {
+        chatId = decodeURIComponent(readConversationMatch[1]);
+      } catch {
+        throw new ApiError(
+          400,
+          "Некорректный ID диалога",
+          "invalid_conversation_id",
+        );
+      }
+      await requireConversationMember(auth, chatId);
+      const conversation = await database
+        .prepare("SELECT kind FROM conversations WHERE id = ?")
+        .get(chatId);
+      if (conversation?.kind !== "direct") {
+        throw new ApiError(
+          400,
+          "Отметки прочтения доступны только в личных чатах",
+          "read_receipt_not_supported",
+        );
+      }
+      const receipt = await markConversationRead(auth.user.id, chatId);
+      await broadcastConversationEvent(chatId, "messages_read", receipt);
+      sendJson(res, 200, { receipt });
       return;
     }
 
@@ -1328,16 +1649,23 @@ async function main() {
       pushSse(res, "hello", { ok: true, participant, ...presencePayload() });
       pushSse(res, "snapshot", { messages: snapshot });
       broadcastPresence();
+      await broadcastUserPresence(auth.user.id);
 
       const heartbeat = setInterval(() => {
         const record = clients.get(res);
         if (record) record.lastSeenAt = new Date().toISOString();
         pushSse(res, "ping", { at: new Date().toISOString() });
       }, 25000);
-      res.on("close", () => {
+      res.on("close", async () => {
         clearInterval(heartbeat);
         clients.delete(res);
+        const disconnectedAt = nowIso();
+        await database
+          .prepare("UPDATE sessions SET last_seen_at = ? WHERE id = ?")
+          .run(disconnectedAt, auth.session.id)
+          .catch(() => {});
         broadcastPresence();
+        await broadcastUserPresence(auth.user.id).catch(() => {});
       });
       return;
     }
@@ -1353,6 +1681,9 @@ async function main() {
       );
       await broadcastMessage(message);
       sendJson(res, 201, { message });
+      void notifyMessageRecipients(message).catch((error) =>
+        console.warn("Push notification failed:", error.message),
+      );
       return;
     }
 

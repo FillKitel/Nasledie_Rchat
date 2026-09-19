@@ -1170,6 +1170,10 @@ svg {
   letter-spacing: -3px;
   padding-right: 3px;
 }
+.checks.read {
+  color: #b9fff1;
+  text-shadow: 0 0 8px rgba(94, 235, 205, 0.35);
+}
 .reaction {
   display: flex;
   align-items: center;
@@ -2006,6 +2010,50 @@ svg {
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.notification-settings {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 13px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--surface-soft) 72%, var(--surface));
+}
+.notification-settings[hidden] {
+  display: none;
+}
+.notification-settings strong {
+  display: block;
+  font-size: 12px;
+}
+.notification-settings p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.notification-settings button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  border: 0;
+  border-radius: 11px;
+  padding: 0 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.notification-settings button[data-enabled="true"] {
+  background: color-mix(in srgb, #43c791 16%, var(--surface));
+  color: #2aa978;
+}
+.notification-settings button:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 .profile-note {
   margin: 12px 2px 0;

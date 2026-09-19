@@ -29,6 +29,18 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
 
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx ON push_subscriptions(user_id);
+
 CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL CHECK(kind IN ('room', 'direct')),
@@ -47,6 +59,15 @@ CREATE TABLE IF NOT EXISTS conversation_members (
   PRIMARY KEY (conversation_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS conversation_members_user_idx ON conversation_members(user_id);
+
+CREATE TABLE IF NOT EXISTS conversation_reads (
+  conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  last_read_rowid BIGINT NOT NULL DEFAULT 0,
+  read_at TEXT NOT NULL,
+  PRIMARY KEY (conversation_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS conversation_reads_user_idx ON conversation_reads(user_id);
 
 CREATE TABLE IF NOT EXISTS messages (
   rowid INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -198,6 +198,9 @@ const profileAvatarInput = $("#profileAvatarInput");
 const profileAvatarChoose = $("#profileAvatarChoose");
 const profileAvatarRemove = $("#profileAvatarRemove");
 const profileLogoutButton = $("#profileLogoutButton");
+const notificationSettings = $("#notificationSettings");
+const notificationStatus = $("#notificationStatus");
+const notificationToggleButton = $("#notificationToggleButton");
 const profileButtons = [$("#profileButton"), $("#inboxProfileButton")].filter(
   Boolean,
 );
@@ -223,6 +226,10 @@ let viewedUser = null;
 let publicProfileRevision = 0;
 let avatarCropDraft = null;
 let avatarCropPointer = null;
+let serviceWorkerRegistration = null;
+let pushSubscription = null;
+let markingReadChatId = "";
+let notificationChatId = new URLSearchParams(location.search).get("chat") || "";
 let pendingMessageTarget = null;
 let pendingConfirmAction = null;
 
@@ -333,9 +340,12 @@ function renderMessages() {
                 message.direction === "out"
                   ? `<button class="message-action-button" type="button" data-message-action data-message-index="${index}" data-message-id="${escapeHtml(message.id || "")}" aria-label="Действия с сообщением" aria-expanded="false"><svg><use href="#i-more"/></svg></button>`
                   : "";
+              const receipt = message.readAt
+                ? `<span class="checks read" title="Прочитано ${escapeHtml(formatServerTime(message.readAt))}">✓✓</span>`
+                : '<span class="checks" title="Отправлено на сервер">✓</span>';
               return `
         <div class="message ${message.direction} ${grouped ? "grouped" : ""}">
-          <div class="message-row">${messageAction}<div class="bubble">${message.authorName && message.direction === "in" ? `<strong class="message-author">${escapeHtml(message.authorName)}</strong>` : ""}${escapeHtml(message.text).replaceAll("\n", "<br>")}<span class="message-time">${escapeHtml(message.time)}${message.direction === "out" ? '<span class="checks">✓✓</span>' : ""}</span></div></div>
+          <div class="message-row">${messageAction}<div class="bubble">${message.authorName && message.direction === "in" ? `<strong class="message-author">${escapeHtml(message.authorName)}</strong>` : ""}${escapeHtml(message.text).replaceAll("\n", "<br>")}<span class="message-time">${escapeHtml(message.time)}${message.direction === "out" ? receipt : ""}</span></div></div>
           ${message.reaction ? `<button class="reaction" aria-label="Реакция ${escapeHtml(message.reaction)}">${escapeHtml(message.reaction)} <small>${message.reactionCount || 1}</small></button>` : ""}
         </div>
       `;
@@ -398,6 +408,13 @@ function updateHeader() {
 
 function isMobileLayout() {
   return window.matchMedia("(max-width: 820px)").matches;
+}
+
+function activeConversationIsVisible() {
+  return (
+    document.visibilityState === "visible" &&
+    (!isMobileLayout() || appShell.classList.contains("chat-open"))
+  );
 }
 
 function renderActiveChat() {
@@ -726,6 +743,8 @@ function publicUserFromParticipant(participant) {
     avatarUrl: participant.avatarUrl || "",
     createdAt: participant.createdAt || "",
     updatedAt: participant.updatedAt || "",
+    online: true,
+    lastSeenAt: participant.lastSeenAt || new Date().toISOString(),
   };
 }
 
@@ -739,6 +758,8 @@ function publicUserFromChat(chat) {
     avatarUrl: chat.avatarUrl || "",
     createdAt: chat.peer.createdAt || "",
     updatedAt: chat.peer.updatedAt || "",
+    online: Boolean(chat.peer.online),
+    lastSeenAt: chat.peer.lastSeenAt || "",
   };
 }
 
@@ -752,6 +773,28 @@ function memberSince(value) {
   }).format(date);
 }
 
+function formatPresence({ online = false, lastSeenAt = "" } = {}) {
+  if (online) return "в сети";
+  const date = new Date(lastSeenAt);
+  if (!lastSeenAt || Number.isNaN(date.getTime())) return "давно не заходил(а)";
+  const now = new Date();
+  const time = new Intl.DateTimeFormat("ru", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+  const sameDay = date.toDateString() === now.toDateString();
+  if (sameDay) return `был(а) сегодня в ${time}`;
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString())
+    return `был(а) вчера в ${time}`;
+  return `был(а) ${new Intl.DateTimeFormat("ru", {
+    day: "numeric",
+    month: "short",
+    year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
+  }).format(date)} в ${time}`;
+}
+
 function renderPublicProfile() {
   if (!viewedUser) return;
   setAvatar($("#publicProfileAvatar"), viewedUser);
@@ -761,6 +804,7 @@ function renderPublicProfile() {
   $("#publicProfileBio").textContent =
     viewedUser.bio || "Пользователь пока ничего о себе не рассказал.";
   $("#publicProfileSince").textContent = memberSince(viewedUser.createdAt);
+  $("#publicProfilePresence").textContent = formatPresence(viewedUser);
   publicProfileMessage.hidden =
     !viewedUser.id || viewedUser.id === currentAuthorId();
 }
@@ -923,6 +967,10 @@ function upsertParticipantChat(participant, conversation) {
   const peerProfileId = peer.id || participant.profileId || participant.id;
   const peerCreatedAt = peer.createdAt || participant.createdAt || "";
   const peerUpdatedAt = peer.updatedAt || participant.updatedAt || "";
+  const peerOnline = Boolean(
+    peer.online ?? participant.online ?? participant.lastSeenAt,
+  );
+  const peerLastSeenAt = peer.lastSeenAt || participant.lastSeenAt || "";
   let chat = chats.find(
     (item) => item.serverChatId === serverChatId || item.id === serverChatId,
   );
@@ -936,7 +984,10 @@ function upsertParticipantChat(participant, conversation) {
       initials: makeInitials(name),
       avatar: "logo-avatar",
       avatarUrl,
-      status: "аккаунт Маяка",
+      status: formatPresence({
+        online: peerOnline,
+        lastSeenAt: peerLastSeenAt,
+      }),
       handle,
       bio:
         bio ||
@@ -951,6 +1002,8 @@ function upsertParticipantChat(participant, conversation) {
         deviceName: device,
         createdAt: peerCreatedAt,
         updatedAt: peerUpdatedAt,
+        online: peerOnline,
+        lastSeenAt: peerLastSeenAt,
       },
     };
   }
@@ -960,7 +1013,10 @@ function upsertParticipantChat(participant, conversation) {
   chat.name = name;
   chat.initials = makeInitials(name);
   chat.avatarUrl = avatarUrl;
-  chat.status = "аккаунт Маяка";
+  chat.status = formatPresence({
+    online: peerOnline,
+    lastSeenAt: peerLastSeenAt,
+  });
   chat.handle = handle;
   chat.bio =
     bio ||
@@ -971,6 +1027,8 @@ function upsertParticipantChat(participant, conversation) {
     deviceName: device,
     createdAt: peerCreatedAt,
     updatedAt: peerUpdatedAt,
+    online: peerOnline,
+    lastSeenAt: peerLastSeenAt,
   };
   chats = [chat, ...chats.filter((item) => item.id !== chat.id)];
   save();
@@ -1006,6 +1064,8 @@ function syncServerConversations(serverConversations = []) {
       bio: peer.bio || "",
       avatarUrl: peer.avatarUrl || "",
       deviceName: "Устройство Маяка",
+      online: Boolean(peer.online),
+      lastSeenAt: peer.lastSeenAt || "",
     };
     const chat = upsertParticipantChat(participant, conversation);
     chat.clearedBeforeSequence = conversation.clearedBeforeSequence || 0;
@@ -1013,7 +1073,9 @@ function syncServerConversations(serverConversations = []) {
       (message) =>
         !message.sequence || message.sequence > chat.clearedBeforeSequence,
     );
-    chat.status = "аккаунт Маяка";
+    chat.status = formatPresence(peer);
+    chat.unread = Number(conversation.unreadCount || 0);
+    chat.lastReadSequence = Number(conversation.lastReadSequence || 0);
     chat.bio = peer.bio || "Личный диалог с серверной проверкой участников.";
     if (conversation.lastMessage) {
       const mapped = mapServerMessage(conversation.lastMessage);
@@ -1027,6 +1089,19 @@ function syncServerConversations(serverConversations = []) {
   }
   save();
   renderChatList();
+  if (notificationChatId) {
+    const requested = chats.find(
+      (chat) => (chat.serverChatId || chat.id) === notificationChatId,
+    );
+    if (requested) {
+      const targetId = requested.id;
+      notificationChatId = "";
+      const cleanUrl = new URL(location.href);
+      cleanUrl.searchParams.delete("chat");
+      history.replaceState(history.state, "", cleanUrl);
+      queueMicrotask(() => openChat(targetId));
+    }
+  }
 }
 
 async function openParticipantChat(participantId) {
@@ -1127,6 +1202,27 @@ function updatePresence(data = {}) {
     ? data.participants
     : [];
   renderParticipants();
+}
+
+function applyUserPresence(presence) {
+  if (!presence?.userId) return;
+  let changed = false;
+  for (const chat of chats) {
+    if (chat.peer?.profileId !== presence.userId) continue;
+    chat.peer.online = Boolean(presence.online);
+    chat.peer.lastSeenAt = presence.lastSeenAt || chat.peer.lastSeenAt || "";
+    chat.status = formatPresence(chat.peer);
+    changed = true;
+  }
+  if (viewedUser?.id === presence.userId) {
+    viewedUser.online = Boolean(presence.online);
+    viewedUser.lastSeenAt = presence.lastSeenAt || viewedUser.lastSeenAt || "";
+    renderPublicProfile();
+  }
+  if (!changed) return;
+  save();
+  renderChatList();
+  if (activeChat().peer?.profileId === presence.userId) updateHeader();
 }
 
 function setLiveStatus(state, title, text) {
@@ -1245,6 +1341,7 @@ function mapServerMessage(message) {
     authorName: message.authorName,
     text: message.text,
     time: formatServerTime(message.createdAt),
+    readAt: message.readAt || "",
   };
 }
 
@@ -1323,7 +1420,11 @@ function applyServerMessages(
     chat.messages.push(mapped);
     chat.preview = `${mapped.direction === "out" ? "Вы: " : ""}${mapped.text}`;
     chat.time = mapped.time;
-    if (mapped.direction === "in" && activeChatId !== chat.id) chat.unread += 1;
+    if (
+      mapped.direction === "in" &&
+      (activeChatId !== chat.id || !activeConversationIsVisible())
+    )
+      chat.unread += 1;
     touchedChatIds.add(chat.id);
   }
 
@@ -1345,6 +1446,63 @@ function applyServerMessages(
   if (touchedChatIds.has(activeChatId)) {
     updateHeader();
     renderMessages();
+    void markActiveChatRead(activeChat());
+  }
+}
+
+function applyMessagesRead(receipt) {
+  if (!receipt?.chatId) return;
+  const chat = chatForServerMessage(receipt.chatId);
+  if (!chat) return;
+  const sequence = Number(receipt.lastReadSequence || 0);
+  if (receipt.userId === currentAuthorId()) {
+    chat.lastReadSequence = Math.max(
+      Number(chat.lastReadSequence || 0),
+      sequence,
+    );
+    chat.unread = 0;
+  } else {
+    for (const message of chat.messages) {
+      if (
+        message.direction === "out" &&
+        Number(message.sequence || 0) <= sequence
+      )
+        message.readAt = receipt.readAt || message.readAt || "";
+    }
+  }
+  save();
+  renderChatList();
+  if (chat.id === activeChatId) renderMessages();
+}
+
+async function markActiveChatRead(chat = activeChat()) {
+  if (
+    !realtime.authenticated ||
+    !realtime.available ||
+    !activeConversationIsVisible() ||
+    !chat?.realtime ||
+    chat.id === LIVE_CHAT_ID ||
+    markingReadChatId === chat.id
+  )
+    return;
+  const latestIncoming = Math.max(
+    0,
+    ...chat.messages
+      .filter((message) => message.direction === "in")
+      .map((message) => Number(message.sequence || 0)),
+  );
+  if (latestIncoming <= Number(chat.lastReadSequence || 0)) return;
+  markingReadChatId = chat.id;
+  try {
+    const { receipt } = await fetchJson(
+      `/api/conversations/${encodeURIComponent(chat.serverChatId || chat.id)}/read`,
+      { method: "POST", body: "{}", timeout: 3000 },
+    );
+    applyMessagesRead(receipt);
+  } catch (error) {
+    if (error.status === 401) handleSessionExpired();
+  } finally {
+    if (markingReadChatId === chat.id) markingReadChatId = "";
   }
 }
 
@@ -1531,6 +1689,14 @@ function connectEventStream() {
     applyEvent(applyChatCleared, JSON.parse(event.data));
   });
 
+  source.addEventListener("messages_read", (event) => {
+    applyEvent(applyMessagesRead, JSON.parse(event.data));
+  });
+
+  source.addEventListener("user_presence", (event) => {
+    applyEvent(applyUserPresence, JSON.parse(event.data));
+  });
+
   source.addEventListener("presence", (event) => {
     const data = JSON.parse(event.data);
     updatePresence(data);
@@ -1595,6 +1761,8 @@ function applyAuthenticatedSession({ user, session }) {
   renderProfileChrome();
   updateHeader();
   renderMessages();
+  if (serviceWorkerRegistration)
+    void refreshNotificationSettings({ sync: true });
 }
 
 function handleSessionExpired() {
@@ -1942,6 +2110,104 @@ function renderProfileChrome() {
   if (activeSection === "contacts") searchPeople();
 }
 
+function pushSupported() {
+  return (
+    "serviceWorker" in navigator &&
+    "PushManager" in window &&
+    "Notification" in window &&
+    Boolean(serviceWorkerRegistration)
+  );
+}
+
+function pushApplicationKey(value) {
+  const padding = "=".repeat((4 - (value.length % 4)) % 4);
+  const base64 = (value + padding).replaceAll("-", "+").replaceAll("_", "/");
+  return Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+}
+
+async function syncPushSubscription(subscription) {
+  if (!subscription || !realtime.authenticated) return;
+  await fetchJson("/api/push/subscriptions", {
+    method: "PUT",
+    body: JSON.stringify(subscription.toJSON()),
+    timeout: 5000,
+  });
+}
+
+async function refreshNotificationSettings({ sync = false } = {}) {
+  if (!realtime.authenticated) {
+    notificationSettings.hidden = true;
+    return;
+  }
+  notificationSettings.hidden = false;
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  if (!pushSupported()) {
+    notificationToggleButton.hidden = true;
+    notificationStatus.textContent =
+      isIos && !navigator.standalone
+        ? "На iPhone сначала добавьте Маяк на экран «Домой»."
+        : "Это устройство пока не поддерживает фоновые уведомления.";
+    return;
+  }
+  notificationToggleButton.hidden = false;
+  pushSubscription =
+    await serviceWorkerRegistration.pushManager.getSubscription();
+  const enabled = Notification.permission === "granted" && pushSubscription;
+  notificationToggleButton.dataset.enabled = String(Boolean(enabled));
+  notificationToggleButton.textContent = enabled ? "Отключить" : "Включить";
+  notificationToggleButton.disabled = Notification.permission === "denied";
+  notificationStatus.textContent =
+    Notification.permission === "denied"
+      ? "Уведомления запрещены в настройках браузера."
+      : enabled
+        ? "Новые личные сообщения придут даже при закрытой вкладке."
+        : "Разрешите уведомления, чтобы не пропускать сообщения.";
+  if (enabled && sync) await syncPushSubscription(pushSubscription);
+}
+
+async function enablePushNotifications() {
+  if (!pushSupported()) return refreshNotificationSettings();
+  notificationToggleButton.disabled = true;
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return;
+    const { publicKey } = await fetchJson("/api/push/config");
+    pushSubscription =
+      (await serviceWorkerRegistration.pushManager.getSubscription()) ||
+      (await serviceWorkerRegistration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: pushApplicationKey(publicKey),
+      }));
+    await syncPushSubscription(pushSubscription);
+    showToast("Уведомления включены");
+  } catch (error) {
+    showToast(error.message || "Не удалось включить уведомления");
+  } finally {
+    notificationToggleButton.disabled = false;
+    await refreshNotificationSettings();
+  }
+}
+
+async function disablePushNotifications() {
+  if (!pushSubscription) return refreshNotificationSettings();
+  notificationToggleButton.disabled = true;
+  try {
+    await fetchJson("/api/push/subscriptions", {
+      method: "DELETE",
+      body: JSON.stringify({ endpoint: pushSubscription.endpoint }),
+      timeout: 5000,
+    });
+    await pushSubscription.unsubscribe();
+    pushSubscription = null;
+    showToast("Уведомления отключены");
+  } catch (error) {
+    showToast(error.message || "Не удалось отключить уведомления");
+  } finally {
+    notificationToggleButton.disabled = false;
+    await refreshNotificationSettings();
+  }
+}
+
 function showProfileError(message = "") {
   const error = $("#profileError");
   error.textContent = message;
@@ -1965,6 +2231,8 @@ function fillProfileForm({ required = false, preserveValues = false } = {}) {
     : "new-password";
   profileHandleInput.disabled = editingAccount;
   profileLogoutButton.hidden = !editingAccount;
+  notificationSettings.hidden = !editingAccount;
+  if (editingAccount) void refreshNotificationSettings({ sync: true });
 
   document.querySelectorAll("[data-auth-mode]").forEach((button) => {
     button.classList.toggle("active", button.dataset.authMode === authMode);
@@ -2493,6 +2761,10 @@ profileForm.addEventListener("submit", (event) => {
 });
 
 profileLogoutButton.addEventListener("click", () => void logoutAccount());
+notificationToggleButton.addEventListener("click", () => {
+  if (pushSubscription) void disablePushNotifications();
+  else void enablePushNotifications();
+});
 
 for (const button of [
   $("#headerAvatar"),
@@ -2677,6 +2949,10 @@ window.addEventListener("popstate", (event) => {
   appShell.classList.remove("chat-open");
 });
 
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") void markActiveChatRead();
+});
+
 const preferredTheme =
   localStorage.getItem("mayak-theme") ||
   (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
@@ -2689,5 +2965,21 @@ renderMessages();
 initRealtime();
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-  navigator.serviceWorker.register("./sw.js").catch(() => {});
+  navigator.serviceWorker
+    .register("./sw.js")
+    .then(async (registration) => {
+      serviceWorkerRegistration = registration;
+      if (realtime.authenticated)
+        await refreshNotificationSettings({ sync: true });
+    })
+    .catch(() => {});
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    if (event.data?.type !== "mayak-push") return;
+    const payload = event.data.payload || {};
+    showToast(
+      payload.title
+        ? `${payload.title}: ${payload.body || "Новое сообщение"}`
+        : "Новое сообщение",
+    );
+  });
 }
